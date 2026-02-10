@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYBER STACK: High Score Protocol</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --highlight: #58a6ff;
+            --danger: #da3633;
+            --success: #238636;
+            --warning: #d29922;
+            --text-main: #c9d1d9;
+            --border: #30363d;
+        }
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        h1 { margin-bottom: 5px; text-shadow: 0 0 10px var(--highlight); }
+        .subtitle { font-size: 12px; color: #8b949e; margin-bottom: 20px; }
+        
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        /* --- AREAS --- */
+        .opponent-area {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .player-area {
+            background: #0d1117;
+            border: 2px solid var(--highlight);
+            padding: 20px;
+            border-radius: 8px;
+            min-height: 280px;
+        }
+        .info-panel {
+            display: flex;
+            justify-content: space-between;
+            background: #21262d;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        /* --- CARDS --- */
+        .card-zone {
+            display: flex;
+            gap: 10px;
+            min-height: 130px;
+            padding: 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 4px;
+            margin-bottom: 10px;
+            align-items: center;
+            overflow-x: auto;
+        }
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            width: 100px;
+            height: 140px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 5px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+            flex-shrink: 0;
+        }
+        .card:hover { transform: translateY(-5px); border-color: var(--highlight); }
+        .card.selected { border: 2px solid var(--highlight); box-shadow: 0 0 10px var(--highlight); }
+        .card.burning { border: 2px solid var(--danger); opacity: 0.6; transform: scale(0.9); } 
+
+        /* Sides of Card */
+        .card-side {
+            padding: 4px;
+            border-radius: 3px;
+            text-align: center;
+            background: #21262d;
+        }
+        .card-side.active { background: #1f6feb; color: white; }
+        .card-side:hover { background: #30363d; }
+        
+        .side-title { font-weight: bold; display: block; margin-bottom: 2px; }
+        .side-stats { font-size: 10px; color: #8b949e; }
+        .card-side.active .side-stats { color: #e1e4e8; }
+
+        /* Types */
+        .type-red { border-top: 3px solid #ff4444; }
+        .type-blue { border-top: 3px solid #4444ff; }
+        .type-green { border-top: 3px solid #44ff44; }
+        .type-yellow { border-top: 3px solid #ffff44; }
+        .type-purple { border-top: 3px solid #aa44ff; }
+        .type-wild { border-top: 3px solid white; }
+        .type-action { border-top: 3px solid orange; }
+
+        /* --- CONTROLS --- */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+            align-items: center;
+        }
+        .btn-group { display: flex; gap: 10px; }
+        button {
+            padding: 15px 25px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .btn-play { background: var(--success); }
+        .btn-play:disabled { background: #30363d; opacity: 0.5; cursor: not-allowed; }
+        .btn-pass { background: var(--warning); color: #000; }
+        
+        .overclock-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: #331;
+            padding: 10px;
+            border: 1px solid #774;
+            border-radius: 4px;
+            min-width: 120px;
+        }
+
+        .dice-box {
+            width: 60px;
+            height: 60px;
+            background: white;
+            color: black;
+            font-size: 30px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(255,255,255,0.2);
+        }
+
+        /* --- LOG --- */
+        #game-log {
+            height: 150px;
+            overflow-y: auto;
+            background: #000;
+            border: 1px solid var(--border);
+            padding: 10px;
+            font-size: 12px;
+            font-family: monospace;
+            color: #0f0;
+        }
+        .log-entry { margin-bottom: 4px; }
+        .log-turn { color: var(--highlight); border-bottom: 1px solid #333; margin-top: 5px; }
+        .log-fail { color: var(--danger); }
+        .log-success { color: var(--success); }
+        .log-pass { color: var(--warning); }
+        .log-win { color: #d29922; font-weight: bold; }
+
+        /* --- HUD --- */
+        .player-hud { width: 300px; background: #161b22; padding: 10px; border: 1px solid #30363d; border-radius: 4px; }
+        .hud-header { font-weight: bold; border-bottom: 1px solid #30363d; padding-bottom: 5px; margin-bottom: 5px; display: flex; justify-content: space-between;}
+        .hud-stats { display: flex; gap: 10px; font-size: 12px; }
+        .mini-card { display: inline-block; padding: 2px 5px; margin: 1px; font-size: 10px; border-radius: 3px; border: 1px solid #444; }
+    </style>
+</head>
+<body>
+
+    <h1>CYBER STACK</h1>
+    <div class="subtitle">// HIGH SCORE PROTOCOL // TRIGGER: 5 COLORS // WINNER: MAX VP</div>
+
+    <div class="game-container">
+        <div id="opponents" class="opponent-area"></div>
+
+        <div class="controls">
+            <div id="dice-display" class="dice-box">?</div>
+            
+            <div class="overclock-panel">
+                <div style="font-size: 12px; margin-bottom: 5px; color: #fe9;">OVERCLOCK</div>
+                <div style="font-size: 10px; color: #888;">Right-Click Hand to Burn</div>
+                <div id="bonus-display" style="font-size: 18px; font-weight: bold; color: #fe9;">+0</div>
+            </div>
+
+            <div class="btn-group">
+                <button id="btn-roll" class="btn-play" onclick="executeTurn()">EXECUTE</button>
+                <button id="btn-pass" class="btn-pass" onclick="passTurn()">REBOOT (PASS)</button>
+            </div>
+            
+            <div style="text-align: left; font-size: 12px;">
+                <div>PHASE: <span id="phase-display" style="color: var(--highlight)">SELECT OPTION</span></div>
+                <div>ROUND: <span id="round-display">1</span></div>
+            </div>
+        </div>
+
+        <div class="player-area">
+            <div class="info-panel">
+                <div>
+                    <strong>YOU</strong> 
+                    <span id="player-score" style="color: var(--success); margin-left: 10px; font-size: 1.2em;">VP: 0</span>
+                </div>
+                <div>
+                    <span id="hand-count" style="color: #fff;">Hand: 0/5</span> | 
+                    <span id="colors-status" style="color: var(--highlight);">Colors: 0/5</span>
+                </div>
+            </div>
+
+            <div style="font-size: 12px; color: #888; margin-bottom: 5px;">
+                SCORE PILE (Collect 5 Distinct Colors to End Game):
+            </div>
+            <div id="player-score-pile" class="card-zone"></div>
+
+            <div style="font-size: 12px; color: #888; margin-bottom: 5px;">
+                HAND (Ammo) | Right-Click to Burn (+1 Roll)
+            </div>
+            <div id="player-hand" class="card-zone"></div>
+        </div>
+
+        <div id="game-log"></div>
+    </div>
+
+<script>
+/* --- CONFIG --- */
+const COLORS = ["Red", "Blue", "Green", "Yellow", "Purple"];
+const STARTING_HAND = 3;
+const MAX_HAND = 5;
+const TRIGGER_COLORS = 5; // Triggers end game
+
+/* --- STATE --- */
+let deck = [];
+let discardPile = [];
+let players = [];
+let round = 1;
+let phase = 'SELECT'; 
+let gameOver = false;
+let playerBonus = 0; 
+
+/* --- CLASSES --- */
+class Card {
+    constructor(s1, s2) {
+        this.id = Math.random().toString(36).substr(2, 9);
+        this.sides = [s1, s2];
+        this.selectedSide = 0; 
+        this.isBurning = false; 
+    }
+}
+
+class Player {
+    constructor(name, isBot) {
+        this.name = name;
+        this.isBot = isBot;
+        this.hand = [];
+        this.scorePile = [];
+        this.cache = [];
+        this.passed = false;
+        this.selection = null; 
+        this.botBonus = 0;
+    }
+
+    getScore() {
+        let s = 0;
+        this.scorePile.forEach(c => s += c.sides[c.selectedSide].value);
+        this.cache.forEach(c => s += c.sides[c.selectedSide].value);
+        return s;
+    }
+
+    getUniqueColors() {
+        let colorSet = new Set();
+        let wildCount = 0;
+        this.scorePile.forEach(c => {
+            let s = c.sides[c.selectedSide];
+            if(s.type === 'Color') colorSet.add(s.name);
+            if(s.type === 'Wild') wildCount++;
+        });
+        return Math.min(TRIGGER_COLORS, colorSet.size + wildCount); 
+    }
+}
+
+/* --- INIT --- */
+function initGame() {
+    deck = generateDeck();
+    players = [
+        new Player("You", false),
+        new Player("Bot 1", true),
+        new Player("Bot 2", true),
+        new Player("Bot 3", true)
+    ];
+    dealInitial();
+    updateUI();
+    log("SYSTEM ONLINE: NOISE FILTERS DISABLED.");
+    log(`OBJECTIVE: Highest Score Wins.`);
+    log(`TRIGGER: Game ends when ANY player gets ${TRIGGER_COLORS} Colors.`);
+}
+
+function generateDeck() {
+    let d = [];
+    // Colors
+    for(let i=0; i<COLORS.length; i++) {
+        for(let j=i+1; j<COLORS.length; j++) {
+            let c1 = COLORS[i], c2 = COLORS[j];
+            d.push(new Card({name:c1, type:'Color', target:5, value:4}, {name:c2, type:'Color', target:3, value:1}));
+            d.push(new Card({name:c1, type:'Color', target:4, value:3}, {name:c2, type:'Color', target:4, value:3}));
+            d.push(new Card({name:c1, type:'Color', target:3, value:2}, {name:c2, type:'Color', target:5, value:4}));
+        }
+    }
+    // Wilds
+    COLORS.forEach(c => {
+        d.push(new Card({name:'Wild', type:'Wild', target:6, value:5}, {name:c, type:'Color', target:2, value:1}));
+    });
+    // Server Nodes (Action)
+    for(let i=0; i<5; i++) {
+        d.push(new Card({name:'Server Node', type:'Action', effect:'Data Surge', target:4, value:0}, {name:'Data Cache', type:'Point', target:3, value:2}));
+    }
+    // Malware
+    for(let i=0; i<4; i++) {
+        d.push(new Card({name:'Hack', type:'Action', effect:'Sabotage', target:4, value:0}, {name:'Scavenge', type:'Action', effect:'Scavenge', target:3, value:0}));
+    }
+    return shuffle(d);
+}
+
+function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+}
+
+function dealInitial() {
+    players.forEach(p => drawCards(p, STARTING_HAND));
+}
+
+function drawCards(p, count) {
+    for(let i=0; i<count; i++) {
+        if(deck.length === 0 && discardPile.length > 0) {
+            deck = shuffle([...discardPile]);
+            discardPile = [];
+        }
+        if(deck.length > 0) {
+            if(p.hand.length < MAX_HAND) {
+                p.hand.push(deck.pop());
+            } else {
+                discardPile.push(deck.pop());
+            }
+        }
+    }
+}
+
+/* --- ACTIONS --- */
+
+function passTurn() {
+    players[0].passed = true;
+    players[0].selection = null;
+    log("You REBOOTED (Passed). Saving ammo...", true, 'pass');
+    runRound();
+}
+
+function executeTurn() {
+    const human = players[0];
+    if (!human.selection) {
+        alert("Select a card to play first!");
+        return;
+    }
+    
+    // Process burning
+    let finalHand = [];
+    human.hand.forEach(c => {
+        if (c.isBurning) discardPile.push(c);
+        else finalHand.push(c);
+    });
+    human.hand = finalHand;
+
+    // Safety
+    if (!human.hand.includes(human.selection.card)) {
+        human.passed = true;
+    }
+
+    runRound();
+}
+
+/* --- CORE LOOP --- */
+function runRound() {
+    if (gameOver) return;
+    
+    // Bot Decisions
+    for(let i=1; i<players.length; i++) {
+        botDecide(players[i]);
+    }
+
+    // Roll
+    let baseRoll = Math.floor(Math.random() * 6) + 1;
+    document.getElementById('dice-display').innerText = baseRoll;
+    log(`--- ROUND ${round} | ROLL: [ ${baseRoll} ] ---`, true);
+
+    // Resolve Players
+    players.forEach(p => resolveTurn(p, baseRoll));
+
+    // Check End Trigger
+    let endGameTriggered = players.some(p => p.getUniqueColors() >= TRIGGER_COLORS);
+    
+    if(endGameTriggered) {
+        handleGameEnd();
+        return;
+    }
+
+    // Cleanup Phase: EVERYONE Draws 1
+    players.forEach(p => {
+        drawCards(p, 1);
+        p.selection = null;
+        p.passed = false;
+        p.botBonus = 0;
+        p.hand.forEach(c => c.isBurning = false);
+    });
+
+    round++;
+    playerBonus = 0;
+    document.getElementById('bonus-display').innerText = "+0";
+    updateUI();
+}
+
+function botDecide(bot) {
+    bot.botBonus = 0;
+    bot.passed = false;
+
+    if (bot.hand.length === 0) {
+        bot.passed = true;
+        log(`${bot.name} Reboots (No Ammo).`, false, 'pass');
+        return;
+    }
+
+    let bestScore = -99;
+    let bestChoice = null;
+
+    // Bot tries to balance Points vs Colors
+    bot.hand.forEach((card, cIdx) => {
+        card.sides.forEach((side, sIdx) => {
+            let val = side.value * 2; // Weight VP heavily
+            
+            // Check Color Utility
+            if (side.type === 'Color') {
+                let hasColor = bot.scorePile.some(sc => sc.sides[sc.selectedSide].name === side.name);
+                if(!hasColor) val += 3; // Uniques are good
+            }
+            if (side.effect === 'Data Surge') val += 5; // Ammo is good
+
+            let requiredRoll = side.target;
+            let prob = (6 - requiredRoll + 1) / 6;
+            
+            // Overclock logic
+            if(requiredRoll >= 5 && bot.hand.length > 2) {
+                // Consider burning
+                prob += 0.2; // Artificial confidence boost
+            }
+
+            let score = val * prob;
+            if(score > bestScore) {
+                bestScore = score;
+                bestChoice = {card: card, sideIndex: sIdx};
+            }
+        });
+    });
+
+    if (bestScore < 2 && bot.hand.length < 3) {
+        bot.passed = true;
+        log(`${bot.name} Reboots to save ammo.`, false, 'pass');
+        return;
+    }
+
+    if(bestChoice) {
+        bot.selection = bestChoice;
+        bot.selection.card.selectedSide = bestChoice.sideIndex;
+        
+        let target = bestChoice.card.sides[bestChoice.sideIndex].target;
+        
+        // Auto-Burn Logic
+        // If target is 5+, burn 1 card. If 6, maybe burn 2.
+        let burnNeeded = 0;
+        if(target === 5) burnNeeded = 1;
+        if(target === 6) burnNeeded = 2;
+
+        // Only burn if we have excess
+        if (burnNeeded > 0) {
+             let fuel = bot.hand.filter(c => c !== bot.selection.card);
+             while (burnNeeded > 0 && fuel.length > 0) {
+                 let f = fuel.pop();
+                 let idx = bot.hand.indexOf(f);
+                 if(idx > -1) {
+                     bot.hand.splice(idx, 1);
+                     discardPile.push(f);
+                     bot.botBonus++;
+                     burnNeeded--;
+                 }
+             }
+             if(bot.botBonus > 0) log(`${bot.name} Overclocked (+${bot.botBonus})`);
+        }
+    } else {
+        bot.passed = true;
+    }
+}
+
+function resolveTurn(p, baseRoll) {
+    if(p.passed) return; 
+    if(!p.selection) return;
+    
+    let card = p.selection.card;
+    let sideIdx = p.selection.sideIndex;
+    let side = card.sides[sideIdx];
+    let bonus = p.isBot ? p.botBonus : playerBonus;
+    let finalRoll = baseRoll + bonus;
+
+    let hIdx = p.hand.indexOf(card);
+    if(hIdx > -1) p.hand.splice(hIdx, 1);
+
+    if (finalRoll >= side.target) {
+        log(`${p.name} Success: ${side.name} (${side.value} VP)`, false, 'success');
+        applyEffect(p, card, side, sideIdx);
+    } else {
+        log(`${p.name} Failed Target (Rolled ${finalRoll} < ${side.target})`, false, 'fail');
+        discardPile.push(card);
+    }
+}
+
+function applyEffect(p, card, side, sideIdx) {
+    card.selectedSide = sideIdx; 
+
+    if (side.effect === 'Data Surge') {
+        drawCards(p, 2);
+        log(`${p.name} triggered Data Surge! Drew 2 Cards.`);
+        discardPile.push(card); 
+    } else if (side.effect === 'Sabotage') {
+        discardPile.push(card);
+        handleSabotage(p);
+    } else if (side.effect === 'Scavenge') {
+        discardPile.push(card);
+        if (discardPile.length > 0) {
+            p.hand.push(discardPile.pop());
+            log(`${p.name} Scavenged 1 card.`);
+        }
+    } else if (side.type === 'Point') {
+        p.cache.push(card);
+    } else {
+        p.scorePile.push(card);
+    }
+}
+
+function handleSabotage(attacker) {
+    let targets = players.filter(pl => pl !== attacker);
+    targets.sort((a,b) => b.getScore() - a.getScore());
+    let victim = targets[0];
+    
+    if(victim.scorePile.length > 0) {
+        let stolen = victim.scorePile.pop();
+        attacker.scorePile.push(stolen);
+        log(`${attacker.name} stole ${stolen.sides[stolen.selectedSide].name} from ${victim.name}!`);
+    }
+}
+
+function handleGameEnd() {
+    gameOver = true;
+    updateUI();
+    
+    // Calculate Winner
+    let sorted = [...players].sort((a,b) => b.getScore() - a.getScore());
+    let winner = sorted[0];
+    
+    let msg = `GAME OVER! End Triggered.`;
+    log(msg, true);
+    
+    let summary = "SCORES:\n";
+    sorted.forEach(p => {
+        let colors = p.getUniqueColors();
+        summary += `${p.name}: ${p.getScore()} VP (${colors} Colors)\n`;
+        log(`${p.name}: ${p.getScore()} VP`, false, p === winner ? 'log-win' : '');
+    });
+    
+    alert(`WINNER: ${winner.name} (${winner.getScore()} VP)\n\n` + summary);
+}
+
+/* --- UI --- */
+
+function selectSide(cIdx, sIdx) {
+    let card = players[0].hand[cIdx];
+    if(card.isBurning) return; 
+    players[0].selection = {card: card, sideIndex: sIdx};
+    updateUI();
+}
+
+function toggleBurn(cIdx) {
+    let card = players[0].hand[cIdx];
+    if(players[0].selection && players[0].selection.card === card) return; 
+    card.isBurning = !card.isBurning;
+    playerBonus = players[0].hand.filter(c => c.isBurning).length;
+    updateUI();
+}
+
+function updateUI() {
+    // Hand
+    let handDiv = document.getElementById('player-hand');
+    handDiv.innerHTML = '';
+    players[0].hand.forEach((card, idx) => {
+        let el = createCardElement(card, true, idx);
+        el.oncontextmenu = (e) => { e.preventDefault(); toggleBurn(idx); };
+        let burnBtn = document.createElement('div');
+        burnBtn.innerText = "BURN";
+        burnBtn.style.cssText = "position:absolute; bottom:2px; right:2px; background:#da3633; font-size:9px; padding:2px; border-radius:3px; color:white; z-index:10;";
+        burnBtn.onclick = (e) => { e.stopPropagation(); toggleBurn(idx); };
+        el.appendChild(burnBtn);
+        handDiv.appendChild(el);
+    });
+
+    // Score Pile
+    let pileDiv = document.getElementById('player-score-pile');
+    pileDiv.innerHTML = '';
+    players[0].scorePile.forEach(card => pileDiv.appendChild(createCardElement(card, false)));
+
+    // Stats
+    let p = players[0];
+    document.getElementById('player-score').innerText = `VP: ${p.getScore()}`;
+    document.getElementById('colors-status').innerText = `Colors: ${p.getUniqueColors()}/${TRIGGER_COLORS}`;
+    document.getElementById('bonus-display').innerText = `+${playerBonus}`;
+    document.getElementById('hand-count').innerText = `Hand: ${p.hand.length}/${MAX_HAND}`;
+    
+    // Opponents
+    let oppDiv = document.getElementById('opponents');
+    oppDiv.innerHTML = '';
+    for(let i=1; i<players.length; i++) {
+        oppDiv.appendChild(createOpponentHUD(players[i]));
+    }
+
+    document.getElementById('btn-roll').disabled = !players[0].selection;
+    document.getElementById('phase-display').innerText = phase;
+    document.getElementById('round-display').innerText = round;
+}
+
+function createCardElement(card, interactable, index) {
+    let el = document.createElement('div');
+    el.className = 'card';
+    if(card.isBurning) el.classList.add('burning');
+    
+    let s0 = card.sides[0];
+    let s1 = card.sides[1];
+    
+    if (interactable) {
+        el.innerHTML = `
+            <div class="card-side type-${getTypeClass(s0.type)}" onclick="selectSide(${index}, 0)">
+                <span class="side-title">${s0.name}</span>
+                <span class="side-stats">T${s0.target} | ${getValStr(s0)}</span>
+            </div>
+            <div style="text-align:center; color:#444;">- OR -</div>
+            <div class="card-side type-${getTypeClass(s1.type)}" onclick="selectSide(${index}, 1)">
+                <span class="side-title">${s1.name}</span>
+                <span class="side-stats">T${s1.target} | ${getValStr(s1)}</span>
+            </div>
+        `;
+        if(players[0].selection && players[0].selection.card === card) {
+            el.classList.add('selected');
+            let sides = el.querySelectorAll('.card-side');
+            sides[players[0].selection.sideIndex].classList.add('active');
+        }
+    } else {
+        let active = card.sides[card.selectedSide];
+        let typeCls = getTypeClass(active.type);
+        if(active.type === 'Color') typeCls = active.name.toLowerCase();
+        
+        el.innerHTML = `
+            <div class="card-side type-${typeCls} active" style="height:100%">
+                <span class="side-title">${active.name}</span>
+                <br>
+                <span style="font-size:16px;">${getValStr(active)}</span>
+            </div>
+        `;
+        el.style.height = '80px'; 
+    }
+    return el;
+}
+
+function createOpponentHUD(p) {
+    let div = document.createElement('div');
+    div.className = 'player-hud';
+    let status = p.passed ? " <span style='color:orange'>(REBOOTING)</span>" : "";
+    
+    let html = `
+        <div class="hud-header">
+            <span>${p.name}${status}</span>
+            <span style="color:var(--highlight)">${p.getScore()} VP</span>
+        </div>
+        <div class="hud-stats">
+            Hand: ${p.hand.length} | Colors: ${p.getUniqueColors()}/${TRIGGER_COLORS}
+        </div>
+        <div style="margin-top:5px;">
+    `;
+    p.scorePile.forEach(c => {
+        let s = c.sides[c.selectedSide];
+        let col = getTypeClass(s.type) === 'color' ? s.name.toLowerCase() : 'white';
+        if(s.type==='Color') col = s.name.toLowerCase();
+        html += `<span class="mini-card" style="border-color:${col}">${s.name[0]}</span>`;
+    });
+    html += `</div>`;
+    div.innerHTML = html;
+    return div;
+}
+
+function getTypeClass(t) {
+    if(t === 'Color') return 'color'; 
+    if(t === 'Wild') return 'wild';
+    if(t === 'Action') return 'action';
+    return 'gray';
+}
+function getValStr(s) {
+    if(s.effect) return s.effect;
+    return s.value + " VP";
+}
+
+function log(msg, isHeader, type) {
+    let div = document.getElementById('game-log');
+    let entry = document.createElement('div');
+    entry.className = isHeader ? 'log-turn' : 'log-entry';
+    if(type) entry.classList.add(type);
+    entry.innerText = msg;
+    div.prepend(entry);
+}
+
+// Start
+initGame();
+</script>
+</body>
+</html>
