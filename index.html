@@ -34,7 +34,7 @@
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(13, 17, 23, 0.98);
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            z-index: 100;
+            z-index: 200; /* High z-index but below tooltip */
         }
         .hidden { display: none !important; }
 
@@ -80,11 +80,14 @@
         .card.burning { border: 2px solid var(--danger); opacity: 0.8; } 
         .card.burning::after {
             content: "🔥"; position: absolute; top: 50%; left: 50%; 
-            transform: translate(-50%, -50%); font-size: 24px;
+            transform: translate(-50%, -50%); font-size: 24px; pointer-events: none;
         }
 
-        .card-side { padding: 4px; border-radius: 3px; text-align: center; background: #21262d; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+        .card-side { padding: 4px; border-radius: 3px; text-align: center; background: #21262d; flex: 1; display: flex; flex-direction: column; justify-content: center; pointer-events: none; /* Let clicks pass to parent usually, but we handle click manually */ }
         .card-side.active { background: #1f6feb; color: white; }
+        
+        /* Enable pointer events for clicks specifically on sides */
+        .card-side { pointer-events: auto; } 
         .card-side:hover { background: #30363d; }
         
         .side-title { font-weight: bold; display: block; margin-bottom: 2px; }
@@ -165,6 +168,23 @@
         .selection-group { margin: 10px 0; text-align: center; }
         .sel-btn { background: #21262d; border: 1px solid #30363d; color: white; padding: 10px 20px; margin: 0 5px; }
         .sel-btn.active { background: var(--highlight); border-color: var(--highlight); }
+
+        /* --- TOOLTIP --- */
+        #tooltip {
+            position: fixed; /* Fixed to viewport to avoid overflow issues */
+            display: none; 
+            background: rgba(0, 0, 0, 0.95);
+            border: 1px solid var(--highlight); 
+            color: #fff; 
+            padding: 10px;
+            font-size: 12px; 
+            pointer-events: none; /* Ignore mouse so it doesn't flicker */
+            z-index: 9999; /* HIGHEST Z-INDEX */
+            max-width: 250px; 
+            border-radius: 4px; 
+            box-shadow: 0 0 15px rgba(0,0,0,0.8);
+            white-space: pre-line; /* Allow new lines */
+        }
     </style>
 </head>
 <body>
@@ -201,6 +221,8 @@
             <div id="discard-grid" class="modal-grid"></div>
         </div>
     </div>
+
+    <div id="tooltip"></div>
 
     <h1>CYBER STACK</h1>
     <div class="subtitle">// ROUND <span id="game-round">1</span> OF 3 // TRIGGER: 5 COLORS //</div>
@@ -272,10 +294,8 @@ let discardPile = [];
 let players = [];
 let turnCount = 1;
 let currentRound = 1;
-let activePlayerIdx = 0; // Index of player currently deciding
+let activePlayerIdx = 0; 
 let gameOver = false;
-
-// Setup vars
 let setupP = 1;
 let setupB = 1;
 
@@ -297,9 +317,9 @@ class Player {
         this.scorePile = [];
         this.cache = [];
         this.passed = false;
-        this.selection = null; // {card, sideIndex}
+        this.selection = null; 
         this.bonus = 0;
-        this.totalScore = 0; // Across 3 rounds
+        this.totalScore = 0; 
     }
 
     getRoundScore() {
@@ -335,7 +355,6 @@ function setSetup(type, val) {
     if(type === 'p') setupP = val;
     if(type === 'b') setupB = val;
     
-    // Update UI buttons
     let group = type === 'p' ? document.querySelectorAll('.selection-group')[0] : document.querySelectorAll('.selection-group')[1];
     Array.from(group.querySelectorAll('.sel-btn')).forEach(b => b.classList.remove('active'));
     event.target.classList.add('active');
@@ -384,11 +403,14 @@ function generateDeck() {
     COLORS.forEach(c => {
         d.push(new Card({name:'Wild', type:'Wild', target:6, value:5}, {name:c, type:'Color', target:2, value:1}));
     });
+    
+    // --- KEY FIX: DIRECT NAMING ---
+    // Use 'Draw +2' and 'Steal' directly in 'name' and 'effect' fields
     for(let i=0; i<5; i++) {
-        d.push(new Card({name:'Server Node', type:'Action', effect:'Data Surge', target:4, value:0}, {name:'Data Cache', type:'Point', target:3, value:2}));
+        d.push(new Card({name:'Draw +2', type:'Action', effect:'Draw +2', target:4, value:0}, {name:'Data Cache', type:'Point', target:3, value:2}));
     }
     for(let i=0; i<4; i++) {
-        d.push(new Card({name:'Hack', type:'Action', effect:'Sabotage', target:4, value:0}, {name:'Scavenge', type:'Action', effect:'Scavenge', target:3, value:0}));
+        d.push(new Card({name:'Steal', type:'Action', effect:'Steal', target:4, value:0}, {name:'Scavenge', type:'Action', effect:'Scavenge', target:3, value:0}));
     }
     return shuffle(d);
 }
@@ -448,7 +470,7 @@ function commitTurn() {
     });
     p.hand = finalHand;
 
-    // Safety: check if selection still exists (wasn't burned)
+    // Safety: check if selection still exists
     if (!p.hand.includes(p.selection.card)) {
         p.passed = true;
         p.selection = null;
@@ -462,10 +484,8 @@ function advanceQueue() {
     
     // Find next human
     if(activePlayerIdx < players.length && !players[activePlayerIdx].isBot) {
-        // Next human's turn
         updateUI();
     } else {
-        // All humans done. Process Bots then Execute
         processBots();
         executeRound();
     }
@@ -480,13 +500,12 @@ function processBots() {
 
         if (bot.hand.length === 0) { bot.passed = true; return; }
 
-        // Simple Bot Logic
         let best = null;
         let bestScore = -99;
 
         bot.hand.forEach((c, idx) => {
             c.sides.forEach((s, sIdx) => {
-                let score = s.value + (6 - s.target); // Value + Ease
+                let score = s.value + (6 - s.target);
                 if(s.type === 'Color' && !hasColor(bot, s.name)) score += 5;
                 if(score > bestScore) { bestScore = score; best = {card:c, side:sIdx}; }
             });
@@ -494,7 +513,6 @@ function processBots() {
 
         if(best) {
             bot.selection = {card: best.card, sideIndex: best.side};
-            // Occasional burn
             if(best.card.sides[best.side].target >= 5 && bot.hand.length > 3) {
                 let burn = bot.hand.find(c => c !== best.card);
                 if(burn) {
@@ -520,13 +538,11 @@ function executeRound() {
 
     players.forEach(p => resolvePlayer(p, baseRoll));
 
-    // Check Trigger
     let roundEnded = players.some(p => p.getUniqueColors() >= TRIGGER_COLORS);
 
     if(roundEnded) {
         endRound();
     } else {
-        // Cleanup & Next Turn
         players.forEach(p => {
             drawCards(p, 1);
             p.selection = null;
@@ -548,7 +564,6 @@ function resolvePlayer(p, baseRoll) {
     let side = card.sides[sIdx];
     let total = baseRoll + p.bonus;
 
-    // Remove played card from hand
     let hIdx = p.hand.indexOf(card);
     if(hIdx > -1) p.hand.splice(hIdx, 1);
 
@@ -556,11 +571,12 @@ function resolvePlayer(p, baseRoll) {
         log(`${p.name} Success: ${side.name} (${side.value} VP)`, false, 'success');
         
         card.selectedSide = sIdx;
-        if (side.effect === 'Data Surge') {
+        // --- KEY FIX: CHECKING NEW NAMES DIRECTLY ---
+        if (side.effect === 'Draw +2') {
             drawCards(p, 2);
-            log(`> Data Surge! +2 Cards`);
+            log(`> Draw +2 executed!`);
             discardPile.push(card);
-        } else if (side.effect === 'Sabotage') {
+        } else if (side.effect === 'Steal') {
             handleSabotage(p);
             discardPile.push(card);
         } else if (side.effect === 'Scavenge') {
@@ -635,10 +651,9 @@ function toggleDiscard() {
         let grid = document.getElementById('discard-grid');
         grid.innerHTML = '';
         discardPile.forEach(c => {
-            // Full card, non-interactive
             let d = createCardElement(c, true, -1, true);
             d.style.cursor = 'default';
-            d.style.pointerEvents = 'none'; // Disable clicks
+            d.style.pointerEvents = 'none'; 
             grid.appendChild(d);
         });
     } else {
@@ -649,12 +664,10 @@ function toggleDiscard() {
 function updateUI() {
     let p = players[activePlayerIdx];
     
-    // Header Info
     document.getElementById('active-player-name').innerText = `${p.name}'S TURN`;
     document.getElementById('turn-display').innerText = turnCount;
     document.getElementById('btn-roll').innerText = (activePlayerIdx < players.length - players.filter(x=>x.isBot).length - 1) ? "NEXT PLAYER" : "EXECUTE ROUND";
 
-    // Stats
     document.getElementById('player-score').innerText = `${p.getRoundScore()} VP`;
     document.getElementById('total-score-display').innerText = `(Total: ${p.totalScore})`;
     document.getElementById('colors-status').innerText = `Colors: ${p.getUniqueColors()}/${TRIGGER_COLORS}`;
@@ -662,7 +675,6 @@ function updateUI() {
     document.getElementById('hand-count').innerText = `Hand: ${p.hand.length}/${MAX_HAND}`;
     document.getElementById('btn-disc').innerText = `DISCARD (${discardPile.length})`;
 
-    // Hand
     let handDiv = document.getElementById('player-hand');
     handDiv.innerHTML = '';
     p.hand.forEach((card, idx) => {
@@ -671,12 +683,10 @@ function updateUI() {
         handDiv.appendChild(el);
     });
 
-    // Score Pile
     let pileDiv = document.getElementById('player-score-pile');
     pileDiv.innerHTML = '';
     p.scorePile.forEach(card => pileDiv.appendChild(createCardElement(card, false)));
 
-    // Opponents HUD
     let oppDiv = document.getElementById('opponents');
     oppDiv.innerHTML = '';
     players.forEach((opp, i) => {
@@ -688,15 +698,47 @@ function updateUI() {
     document.getElementById('btn-roll').disabled = !p.selection;
 }
 
+// --- TOOLTIP LOGIC FIXED ---
+function showTooltip(e, text) {
+    let tt = document.getElementById('tooltip');
+    tt.style.display = 'block';
+    tt.innerText = text;
+    moveTooltip(e);
+}
+function moveTooltip(e) {
+    let tt = document.getElementById('tooltip');
+    if(tt.style.display === 'block') {
+        tt.style.left = (e.clientX + 15) + 'px';
+        tt.style.top = (e.clientY + 15) + 'px';
+    }
+}
+function hideTooltip() {
+    document.getElementById('tooltip').style.display = 'none';
+}
+
 function createCardElement(card, interactable, index, isDiscard = false) {
     let el = document.createElement('div');
     el.className = 'card';
     if(card.isBurning) el.classList.add('burning');
     
+    // --- TOOLTIP BINDING ---
+    let desc = "";
+    if (interactable || isDiscard) {
+        let s1 = card.sides[0], s2 = card.sides[1];
+        desc = `[${s1.name}]\nTarget: ${s1.target}\nEffect: ${getValStr(s1)}\n\n[${s2.name}]\nTarget: ${s2.target}\nEffect: ${getValStr(s2)}`;
+    } else {
+        let s = card.sides[card.selectedSide];
+        desc = `[${s.name}]\nTarget: ${s.target}\nEffect: ${getValStr(s)}`;
+    }
+    
+    // Explicit Event Listeners
+    el.onmouseenter = (e) => showTooltip(e, desc);
+    el.onmousemove = (e) => moveTooltip(e);
+    el.onmouseleave = () => hideTooltip();
+    
     let s0 = card.sides[0];
     let s1 = card.sides[1];
     
-    // Show Full Split Card (Hand or Discard)
     if (interactable || isDiscard) {
         el.innerHTML = `
             <div class="card-side type-${getTypeClass(s0.type)}" ${!isDiscard ? `onclick="selectSide(${index}, 0)"` : ''}>
@@ -710,14 +752,12 @@ function createCardElement(card, interactable, index, isDiscard = false) {
             </div>
         `;
         
-        // Highlight active selection
         if(!isDiscard && players[activePlayerIdx].selection && players[activePlayerIdx].selection.card === card) {
             el.classList.add('selected');
             let sides = el.querySelectorAll('.card-side');
             sides[players[activePlayerIdx].selection.sideIndex].classList.add('active');
         }
     } 
-    // Show Stacked/Scored Card
     else {
         let active = card.sides[card.selectedSide];
         let typeCls = getTypeClass(active.type);
@@ -763,6 +803,13 @@ function createOpponentHUD(p) {
     });
     html += `</div>`;
     div.innerHTML = html;
+    
+    // Add tooltip to HUD as well
+    let desc = `${p.name}\nRound Score: ${p.getRoundScore()}\nTotal Tournament Score: ${p.totalScore}`;
+    div.onmouseenter = (e) => showTooltip(e, desc);
+    div.onmousemove = (e) => moveTooltip(e);
+    div.onmouseleave = () => hideTooltip();
+
     return div;
 }
 
@@ -772,7 +819,9 @@ function getTypeClass(t) {
     if(t === 'Action') return 'action';
     return 'gray';
 }
+
 function getValStr(s) {
+    // Return the effect string directly since it is now "Steal" or "Draw +2"
     if(s.effect) return s.effect;
     return s.value + " VP";
 }
