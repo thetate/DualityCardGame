@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CYBER STACK: v3.0 FLIP UPDATE</title>
+    <title>CYBER STACK: v4.0 TOKEN DROP</title>
     <style>
         :root {
             --bg-color: #0d1117;
@@ -31,7 +31,7 @@
         .subtitle { font-size: 12px; color: #8b949e; margin-bottom: 20px; }
         
         /* --- SCREENS --- */
-        #start-screen {
+        #start-screen, #coin-modal, #discard-modal, #select-modal, #stats-modal {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(13, 17, 23, 0.98);
             display: flex; flex-direction: column; justify-content: center; align-items: center;
@@ -62,6 +62,11 @@
         .info-panel {
             display: flex; justify-content: space-between; background: #21262d;
             padding: 10px; border-radius: 4px; margin-bottom: 10px; margin-top: 10px;
+        }
+
+        .pot-display {
+            display: flex; gap: 15px; background: #161b22; border: 1px solid var(--warning);
+            padding: 5px 15px; border-radius: 4px; align-items: center; margin-bottom: 10px;
         }
 
         /* --- CARDS --- */
@@ -141,12 +146,8 @@
         .log-pass { color: var(--warning); }
         .log-win { color: #d29922; font-weight: bold; }
 
-        /* Modal */
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85); z-index: 50;
-            display: flex; justify-content: center; align-items: center;
-        }
+        /* Modal Overlays */
+        .modal-overlay { background: rgba(0,0,0,0.85); z-index: 50; }
         .modal-content {
             background: var(--bg-color); border: 2px solid var(--border);
             padding: 20px; width: 90%; max-width: 900px; max-height: 85vh;
@@ -166,6 +167,20 @@
             font-weight: bold;
         }
         .back-btn:hover { background: #ff4444; }
+
+        /* --- COIN FLIP CSS --- */
+        .coin-container { display: flex; gap: 20px; justify-content: center; margin: 30px 0; perspective: 800px; }
+        .coin {
+            width: 80px; height: 80px; position: relative; transform-style: preserve-3d;
+            transition: transform 1s ease-out;
+        }
+        .coin-face {
+            position: absolute; width: 100%; height: 100%; backface-visibility: hidden;
+            border-radius: 50%; display: flex; justify-content: center; align-items: center;
+            font-size: 24px; font-weight: bold; border: 4px solid #d29922;
+        }
+        .face-heads { background: #ffd700; color: #333; transform: rotateY(0deg); }
+        .face-tails { background: #b8860b; color: #fff; transform: rotateY(180deg); }
 
         /* --- STATS TABLE --- */
         table.stats-table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -274,9 +289,22 @@
         </div>
     </div>
 
+    <div id="coin-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width:500px">
+            <h2>TOKEN DROP</h2>
+            <div style="color:#888; margin-bottom:20px;">
+                Flipping 4 Tokens...<br>⭐ = Most Points | 🎨 = 5 Colors
+            </div>
+            <div id="coin-area" class="coin-container"></div>
+            <div id="coin-result" style="font-size:20px; font-weight:bold; margin:20px 0; color:var(--highlight); min-height:30px;"></div>
+            <button id="btn-drop" class="btn-play" onclick="executeCoinDrop()">DROP TOKENS</button>
+            <button id="btn-start-round" class="btn-play hidden" onclick="closeCoinModal()">START ROUND</button>
+        </div>
+    </div>
+
     <div id="start-screen">
         <h1 style="font-size: 40px; color: var(--highlight);">CYBER STACK</h1>
-        <div style="color: var(--warning); font-size: 14px; margin-bottom: 20px;">// v3.0 FLIP UPDATE //</div>
+        <div style="color: var(--warning); font-size: 14px; margin-bottom: 20px;">// v4.0 TOKEN DROP //</div>
         
         <div class="selection-group">
             <div>HUMAN PLAYERS</div>
@@ -328,10 +356,20 @@
         </div>
     </div>
 
-    <h1>CYBER STACK <span style="font-size:0.5em; color:#666">v3.0</span></h1>
+    <h1>CYBER STACK <span style="font-size:0.5em; color:#666">v4.0</span></h1>
     <div class="subtitle">// ROUND <span id="game-round">1</span> OF 3 // TRIGGER: 5 COLORS //</div>
 
     <div id="game-root" class="game-container hidden">
+        
+        <div style="display:flex; justify-content:center; width:100%;">
+            <div class="pot-display">
+                <span style="font-size:10px; color:#888;">ROUND STAKES:</span>
+                <span id="pot-points" style="color:var(--success); font-weight:bold;">⭐ 0</span>
+                <span style="color:#444;">|</span>
+                <span id="pot-finisher" style="color:var(--highlight); font-weight:bold;">🎨 0</span>
+            </div>
+        </div>
+
         <div id="opponents" class="opponent-area"></div>
 
         <div class="controls">
@@ -364,6 +402,7 @@
                     <strong>CURRENT SCORE:</strong> 
                     <span id="player-score" style="color: var(--success); margin-left: 10px; font-size: 1.2em;">0 VP</span>
                     <span id="total-score-display" style="color: #888; font-size: 0.8em; margin-left:10px;">(Total: 0)</span>
+                    <span id="player-tokens" style="color: #d29922; font-size: 1.2em; margin-left:15px;">🪙 0</span>
                 </div>
                 <div>
                     <span id="hand-count" style="color: #fff;">Hand: 0/5</span> | 
@@ -405,6 +444,7 @@ let setupP = 1;
 let setupB = 1;
 let pauseForInteraction = false;
 let cardStats = {};
+let matchPot = { points: 0, finisher: 0 }; // NEW POT SYSTEM
 
 /* --- CLASSES --- */
 class Card {
@@ -426,7 +466,8 @@ class Player {
         this.passed = false;
         this.selection = null; 
         this.bonus = 0;
-        this.totalScore = 0; 
+        this.totalScore = 0;
+        this.tokens = 0; 
     }
 
     getRoundScore() {
@@ -520,12 +561,67 @@ function startNewRound() {
     deck = generateDeck();
     discardPile = [];
     players.forEach(p => { p.resetForRound(); drawCards(p, STARTING_HAND); });
-    log(`=== STARTING ROUND ${currentRound} OF ${TOTAL_ROUNDS} ===`, true);
     document.getElementById('game-round').innerText = currentRound;
-    activePlayerIdx = 0;
-    updateUI();
+    
+    // TRIGGER DROP
+    openCoinModal();
 }
 
+/* --- TOKEN DROP SYSTEM --- */
+function openCoinModal() {
+    let modal = document.getElementById('coin-modal');
+    let area = document.getElementById('coin-area');
+    let btnDrop = document.getElementById('btn-drop');
+    let btnStart = document.getElementById('btn-start-round');
+    let res = document.getElementById('coin-result');
+    
+    area.innerHTML = '';
+    res.innerText = '';
+    btnDrop.classList.remove('hidden');
+    btnStart.classList.add('hidden');
+    
+    // Create 4 Coins
+    for(let i=0; i<4; i++) {
+        let coin = document.createElement('div');
+        coin.className = 'coin';
+        coin.innerHTML = `<div class="coin-face face-heads">⭐</div><div class="coin-face face-tails">🎨</div>`;
+        area.appendChild(coin);
+    }
+    
+    modal.classList.remove('hidden');
+}
+
+function executeCoinDrop() {
+    let coins = document.querySelectorAll('.coin');
+    matchPot = { points: 0, finisher: 0 };
+    
+    coins.forEach((c, i) => {
+        let isHeads = Math.random() > 0.5;
+        let rot = isHeads ? 0 : 180;
+        let extraRot = 720 + (Math.floor(Math.random()*3)*360); 
+        
+        c.style.transform = `rotateY(${rot + extraRot}deg)`;
+        
+        if (isHeads) matchPot.points++;
+        else matchPot.finisher++;
+    });
+    
+    document.getElementById('btn-drop').classList.add('hidden');
+    
+    setTimeout(() => {
+        document.getElementById('coin-result').innerText = `RESULT: ${matchPot.points} PTS (⭐) | ${matchPot.finisher} FINISHER (🎨)`;
+        document.getElementById('btn-start-round').classList.remove('hidden');
+    }, 1200);
+}
+
+function closeCoinModal() {
+    document.getElementById('coin-modal').classList.add('hidden');
+    log(`=== ROUND ${currentRound} START === POT: ${matchPot.points}⭐ / ${matchPot.finisher}🎨`);
+    updateUI();
+    activePlayerIdx = 0;
+}
+
+/* --- DECK --- */
 function generateDeck() {
     let d = [];
     // Colors
@@ -669,8 +765,8 @@ function executeRound(baseRoll) {
 }
 
 function finishTurnSequence() {
-    let roundEnded = players.some(p => p.getUniqueColors() >= TRIGGER_COLORS);
-    if(roundEnded) endRound();
+    let finisher = players.find(p => p.getUniqueColors() >= TRIGGER_COLORS);
+    if(finisher) endRound(finisher);
     else {
         players.forEach(p => {
             drawCards(p, 1); p.selection = null; p.passed = false; p.bonus = 0;
@@ -780,9 +876,19 @@ function openPlayerSelectUI(player, mode) {
 
 function showStealCards(player, victim) {
     let grid = document.getElementById('select-grid');
-    document.getElementById('select-title').innerText = `STEAL FROM ${victim.name}`;
-    document.getElementById('select-status').innerText = "Click a card to steal it.";
+    let title = document.getElementById('select-title');
+    let status = document.getElementById('select-status');
+    title.innerText = `STEAL FROM ${victim.name}`;
+    status.innerText = "Click a card to steal it.";
     grid.innerHTML = "";
+    
+    let backBtn = document.createElement('div');
+    backBtn.className = 'back-btn';
+    backBtn.innerText = "⬅ GO BACK";
+    backBtn.onclick = () => openPlayerSelectUI(player, 'STEAL');
+    document.getElementById('select-modal').querySelector('.modal-content').insertBefore(backBtn, document.getElementById('select-status'));
+    let oldBtns = document.querySelectorAll('.back-btn');
+    oldBtns.forEach(b => { if(b !== backBtn) b.remove(); }); 
     
     victim.scorePile.forEach((c, i) => {
         let s = c.sides[c.selectedSide];
@@ -792,6 +898,7 @@ function showStealCards(player, victim) {
         el.onclick = () => {
             victim.scorePile.splice(i, 1); player.scorePile.push(c);
             log(`> You stole ${s.name} from ${victim.name}!`, false, 'success');
+            document.querySelectorAll('.back-btn').forEach(b => b.remove()); 
             document.getElementById('select-modal').classList.add('hidden'); finishTurnSequence();
         };
         grid.appendChild(el);
@@ -806,14 +913,11 @@ function showFlipCards(player, target) {
     status.innerText = "Click to FLIP a card to its other side.";
     grid.innerHTML = "";
     
-    // --- ADDED BACK BUTTON ---
     let backBtn = document.createElement('div');
     backBtn.className = 'back-btn';
     backBtn.innerText = "⬅ GO BACK";
     backBtn.onclick = () => openPlayerSelectUI(player, 'FLIP');
-    // Insert before grid items
     document.getElementById('select-modal').querySelector('.modal-content').insertBefore(backBtn, document.getElementById('select-status'));
-    // Note: To keep layout clean, we remove previous back buttons if any
     let oldBtns = document.querySelectorAll('.back-btn');
     oldBtns.forEach(b => { if(b !== backBtn) b.remove(); }); 
     
@@ -824,7 +928,6 @@ function showFlipCards(player, target) {
         let el = document.createElement('div');
         el.className = 'card';
         
-        // --- ADDED VP VALUES ---
         el.innerHTML = `
             <div class="card-side active type-${getTypeClass(currentS.type)}">
                 <span style="font-size:9px">CURRENT</span>
@@ -842,7 +945,7 @@ function showFlipCards(player, target) {
         el.onclick = () => {
             c.selectedSide = (c.selectedSide + 1) % 2;
             log(`> Flipped ${target.name}'s ${currentS.name} into ${otherS.name}!`, false, 'success');
-            document.querySelectorAll('.back-btn').forEach(b => b.remove()); // Cleanup
+            document.querySelectorAll('.back-btn').forEach(b => b.remove()); 
             document.getElementById('select-modal').classList.add('hidden'); 
             finishTurnSequence();
         };
@@ -888,11 +991,6 @@ function handleBotSteal(attacker) {
 }
 
 function handleBotFlip(attacker) {
-    // Strategy: 
-    // 1. If an opponent has 4+ colors, flip one of their colors to something useless or duplicate.
-    // 2. If I have a duplicate color or bad card, flip it to something better.
-    // 3. Random chaos.
-    
     let potentialVictims = players.filter(p => p !== attacker && p.getUniqueColors() >= 4 && p.scorePile.length > 0);
     
     if (potentialVictims.length > 0) {
@@ -936,20 +1034,40 @@ function handleBotFlip(attacker) {
     }
 }
 
-function endRound() {
-    let msg = `ROUND ${currentRound} COMPLETE! SCORES:\n`;
+function endRound(finisher) {
+    let sorted = [...players].sort((a,b) => b.getRoundScore() - a.getRoundScore());
+    let winner = sorted[0];
+
+    // TOKEN DISTRIBUTION
+    if (finisher) finisher.tokens += matchPot.finisher;
+    winner.tokens += matchPot.points;
+
     players.forEach(p => {
         let s = p.getRoundScore(); p.totalScore += s;
-        msg += `${p.name}: ${s} (Total: ${p.totalScore})\n`;
     });
+
+    let msg = `ROUND ${currentRound} COMPLETE!\n\n`;
+    if(finisher) msg += `🏆 ROUND ENDER: ${finisher.name} (+${matchPot.finisher} Tokens)\n`;
+    msg += `⭐ HIGH SCORE: ${winner.name} (+${matchPot.points} Tokens)\n\nSCORES:\n`;
+    
+    players.forEach(p => {
+        msg += `${p.name}: ${p.getRoundScore()} VP | Tokens: ${p.tokens} | Total VP: ${p.totalScore}\n`;
+    });
+    
     alert(msg);
+
     if (currentRound < TOTAL_ROUNDS) { currentRound++; startNewRound(); } 
     else endGame();
 }
 
 function endGame() {
-    let winner = players.sort((a,b) => b.totalScore - a.totalScore)[0];
-    alert(`TOURNAMENT OVER!\n\nWINNER: ${winner.name}\nFINAL SCORE: ${winner.totalScore}`);
+    let sorted = [...players].sort((a,b) => b.totalScore - a.totalScore);
+    let winner = sorted[0];
+    
+    let summary = "";
+    sorted.forEach(p => summary += `${p.name}: ${p.totalScore} VP | ${p.tokens} Tokens\n`);
+    
+    alert(`TOURNAMENT OVER!\n\nWINNER: ${winner.name}\n\n${summary}`);
     location.reload();
 }
 
@@ -995,6 +1113,12 @@ function updateUI() {
 
     document.getElementById('player-score').innerText = `${p.getRoundScore()} VP`;
     document.getElementById('total-score-display').innerText = `(Total: ${p.totalScore})`;
+    document.getElementById('player-tokens').innerText = `🪙 ${p.tokens}`;
+    
+    // Pot Display Update
+    document.getElementById('pot-points').innerText = `⭐ ${matchPot.points}`;
+    document.getElementById('pot-finisher').innerText = `🎨 ${matchPot.finisher}`;
+    
     document.getElementById('colors-status').innerText = `Colors: ${p.getUniqueColors()}/${TRIGGER_COLORS}`;
     document.getElementById('bonus-display').innerText = `+${p.bonus}`;
     document.getElementById('hand-count').innerText = `Hand: ${p.hand.length}/${MAX_HAND}`;
@@ -1082,7 +1206,7 @@ function createOpponentHUD(p) {
     let status = p.passed ? " <span style='color:orange'>(DONE)</span>" : "";
     let html = `
         <div class="hud-header"><span>${p.name}${status}</span><span style="color:var(--highlight)">${p.getRoundScore()} VP</span></div>
-        <div class="hud-stats">Total: ${p.totalScore} | Hand: ${p.hand.length} | Cols: ${p.getUniqueColors()}</div>
+        <div class="hud-stats">Total: ${p.totalScore} | Tokens: ${p.tokens} 🪙 | Cols: ${p.getUniqueColors()}</div>
         <div style="margin-top:5px; display:flex; flex-wrap:wrap;">
     `;
     p.scorePile.forEach(c => {
