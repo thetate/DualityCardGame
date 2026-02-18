@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CYBER STACK: v4.1 BALANCED</title>
+    <title>CYBER STACK: v4.2 BALANCED</title>
     <style>
         :root {
             --bg-color: #0d1117;
@@ -162,7 +162,7 @@
 
     <div id="start-screen">
         <h1 style="font-size: 40px; color: var(--highlight);">CYBER STACK</h1>
-        <div style="color: var(--warning); font-size: 14px; margin-bottom: 20px;">// v4.1 BALANCED //</div>
+        <div style="color: var(--warning); font-size: 14px; margin-bottom: 20px;">// v4.2 BALANCED //</div>
         <div class="selection-group">
             <div>HUMAN PLAYERS</div>
             <button class="sel-btn active" onclick="setSetup('p', 1)">1</button><button class="sel-btn" onclick="setSetup('p', 2)">2</button><button class="sel-btn" onclick="setSetup('p', 3)">3</button><button class="sel-btn" onclick="setSetup('p', 4)">4</button>
@@ -382,8 +382,11 @@ function generateDeck() {
         d.push(new Card({name:COLORS[i], type:'Color', target:3, value:1}, {name:COLORS[j], type:'Color', target:5, value:3}));
     }
     COLORS.forEach(c => d.push(new Card({name:'Wild', type:'Wild', target:6, value:4}, {name:c, type:'Color', target:2, value:0})));
-    for(let i=0; i<5; i++) d.push(new Card({name:'Draw +2', type:'Action', effect:'Draw +2', target:4, value:0}, {name:'Flip', type:'Action', effect:'Flip', target:4, value:0}));
-    for(let i=0; i<4; i++) d.push(new Card({name:'Steal', type:'Action', effect:'Steal', target:4, value:0}, {name:'Draw +1', type:'Action', effect:'Draw +1', target:2, value:0}));
+    
+    // UPDATE: Draw Actions paired together, Attack Actions paired together
+    for(let i=0; i<5; i++) d.push(new Card({name:'Draw +2', type:'Action', effect:'Draw +2', target:4, value:0}, {name:'Draw +1', type:'Action', effect:'Draw +1', target:2, value:0}));
+    for(let i=0; i<4; i++) d.push(new Card({name:'Steal', type:'Action', effect:'Steal', target:4, value:0}, {name:'Flip', type:'Action', effect:'Flip', target:4, value:0}));
+    
     return shuffle(d);
 }
 function shuffle(a) { for(let i=a.length-1; i>0; i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
@@ -748,11 +751,11 @@ function createCardElement(card, interact, idx, isDisc=false) {
     if(interact || isDisc) {
         let sel = (players[0] && players[0].selection && players[0].selection.card===card);
         el.innerHTML = `
-            <div class="card-side type-${getTypeClass(s0)} ${sel && players[0].selection.sideIndex===0?'active':''}" onclick="${isDisc ? '' : `selectSide(${idx},0)`}">${s0.name}<br>T${s0.target}</div>
+            <div class="card-side type-${getTypeClass(s0)} ${sel && players[0].selection.sideIndex===0?'active':''}" onclick="${isDisc ? '' : `selectSide(${idx},0)`}"><b>${s0.name}</b><br>T${s0.target} • ${s0.value}VP</div>
             <div style="font-size:10px;text-align:center">-</div>
-            <div class="card-side type-${getTypeClass(s1)} ${sel && players[0].selection.sideIndex===1?'active':''}" onclick="${isDisc ? '' : `selectSide(${idx},1)`}">${s1.name}<br>T${s1.target}</div>
+            <div class="card-side type-${getTypeClass(s1)} ${sel && players[0].selection.sideIndex===1?'active':''}" onclick="${isDisc ? '' : `selectSide(${idx},1)`}"><b>${s1.name}</b><br>T${s1.target} • ${s1.value}VP</div>
         `;
-        el.setAttribute('data-tooltip', `${s0.name} (T${s0.target}) / ${s1.name} (T${s1.target})`);
+        el.setAttribute('data-tooltip', `${s0.name} (T${s0.target} / ${s0.value}VP) \n ${s1.name} (T${s1.target} / ${s1.value}VP)`);
         
         // Prevent right-clicking in the discard pile
         if (!isDisc) {
@@ -760,7 +763,7 @@ function createCardElement(card, interact, idx, isDisc=false) {
         }
     } else {
         let s = card.sides[card.selectedSide];
-        el.innerHTML = `<div class="card-side active type-${getTypeClass(s)}" style="height:100%">${s.name}<br>${s.value}VP</div>`;
+        el.innerHTML = `<div class="card-side active type-${getTypeClass(s)}" style="height:100%"><b>${s.name}</b><br>${s.value}VP</div>`;
     }
     return el;
 }
