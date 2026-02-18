@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CYBER STACK: v4.0 TOKEN DROP</title>
+    <title>CYBER STACK: v4.1 BALANCED</title>
     <style>
         :root {
             --bg-color: #0d1117;
@@ -26,80 +26,54 @@
             align-items: center;
             min-height: 100vh;
             overflow-x: hidden;
+            user-select: none;
         }
         h1 { margin-bottom: 5px; text-shadow: 0 0 10px var(--highlight); }
         .subtitle { font-size: 12px; color: #8b949e; margin-bottom: 20px; }
-        
-        /* --- SCREENS --- */
-        #start-screen, #coin-modal, #discard-modal, #select-modal, #stats-modal {
+        .hidden { display: none !important; }
+
+        /* SCREENS & MODALS */
+        #start-screen, #coin-modal, #discard-modal, #select-modal, #stats-modal, #dice-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(13, 17, 23, 0.98);
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             z-index: 500;
         }
-        .hidden { display: none !important; }
-
-        .game-container {
-            display: flex; flex-direction: column; gap: 20px;
-            width: 100%; max-width: 1000px;
+        #start-screen { background: rgba(13, 17, 23, 0.98); }
+        #dice-overlay { background: rgba(0,0,0,0.85); z-index: 2000; perspective: 1000px; pointer-events: none; }
+        .modal-overlay { background: rgba(0,0,0,0.9); z-index: 2100 !important; }
+        
+        .modal-content {
+            background: var(--bg-color); border: 2px solid var(--border);
+            padding: 20px; width: 90%; max-width: 900px; max-height: 85vh;
+            overflow-y: auto; border-radius: 8px; text-align: center;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
         }
+        .modal-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; padding: 10px; }
 
-        /* --- AREAS --- */
+        /* LAYOUT */
+        .game-container { display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: 1000px; }
         .opponent-area { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
-        
-        .player-area {
-            background: #0d1117; border: 2px solid var(--highlight);
-            padding: 20px; border-radius: 8px; min-height: 280px;
-            position: relative;
-        }
-        .turn-indicator {
-            position: absolute; top: -15px; left: 20px; 
-            background: var(--bg-color); color: var(--highlight); 
-            border: 2px solid var(--highlight); padding: 5px 15px;
-            font-weight: bold; font-size: 14px; border-radius: 4px;
-        }
-        
-        .info-panel {
-            display: flex; justify-content: space-between; background: #21262d;
-            padding: 10px; border-radius: 4px; margin-bottom: 10px; margin-top: 10px;
-        }
+        .player-area { background: #0d1117; border: 2px solid var(--highlight); padding: 20px; border-radius: 8px; min-height: 280px; position: relative; }
+        .info-panel { display: flex; justify-content: space-between; background: #21262d; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .pot-display { display: flex; gap: 15px; background: #161b22; border: 1px solid var(--warning); padding: 5px 15px; border-radius: 4px; align-items: center; }
 
-        .pot-display {
-            display: flex; gap: 15px; background: #161b22; border: 1px solid var(--warning);
-            padding: 5px 15px; border-radius: 4px; align-items: center; margin-bottom: 10px;
-        }
-
-        /* --- CARDS --- */
-        .card-zone {
-            display: flex; gap: 10px; min-height: 130px; padding: 10px;
-            background: rgba(255,255,255,0.05); border-radius: 4px;
-            margin-bottom: 10px; align-items: center; overflow-x: auto;
-        }
+        /* CARDS */
+        .card-zone { display: flex; gap: 10px; min-height: 130px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow-x: auto; }
         .card {
-            background: var(--card-bg); border: 1px solid var(--border);
-            border-radius: 6px; width: 100px; height: 140px;
-            display: flex; flex-direction: column; justify-content: space-between;
-            padding: 5px; font-size: 11px; cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s; position: relative; flex-shrink: 0;
+            background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; width: 100px; height: 140px;
+            display: flex; flex-direction: column; justify-content: space-between; padding: 5px; font-size: 11px; cursor: pointer;
+            transition: transform 0.2s; position: relative; flex-shrink: 0;
         }
         .card:hover { transform: translateY(-5px); border-color: var(--highlight); }
         .card.selected { border: 2px solid var(--highlight); box-shadow: 0 0 10px var(--highlight); }
-        .card.burning { border: 2px solid var(--danger); opacity: 0.8; } 
-        .card.burning::after {
-            content: "🔥"; position: absolute; top: 50%; left: 50%; 
-            transform: translate(-50%, -50%); font-size: 24px; pointer-events: none;
-        }
-
+        .card.burning { border: 2px solid var(--danger); opacity: 0.8; }
+        .card.burning::after { content: "🔥"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; }
+        
         .card-side { padding: 4px; border-radius: 3px; text-align: center; background: #21262d; flex: 1; display: flex; flex-direction: column; justify-content: center; }
         .card-side:hover { background: #30363d; }
         .card-side.active { background: #1f6feb; color: white; }
         .card-side.inactive { opacity: 0.3; }
         
-        .side-title { font-weight: bold; display: block; margin-bottom: 2px; pointer-events: none; }
-        .side-stats { font-size: 10px; color: #8b949e; pointer-events: none; }
-        .card-side.active .side-stats { color: #e1e4e8; }
-
-        /* Types */
         .type-red { border-top: 3px solid #ff4444; }
         .type-blue { border-top: 3px solid #4444ff; }
         .type-green { border-top: 3px solid #44ff44; }
@@ -107,171 +81,62 @@
         .type-purple { border-top: 3px solid #aa44ff; }
         .type-wild { border-top: 3px solid white; }
         .type-action { border-top: 3px solid orange; }
+        .type-gray { border-top: 3px solid #555; }
 
-        /* --- CONTROLS --- */
+        /* CONTROLS */
         .controls { display: flex; justify-content: center; gap: 20px; margin: 20px 0; align-items: center; }
         .btn-group { display: flex; gap: 10px; }
-        button {
-            padding: 15px 25px; font-size: 16px; font-weight: bold; color: white;
-            border: none; border-radius: 4px; cursor: pointer; font-family: inherit;
-        }
+        button { padding: 15px 25px; font-size: 16px; font-weight: bold; color: white; border: none; border-radius: 4px; cursor: pointer; font-family: inherit; }
         .btn-play { background: var(--success); }
         .btn-play:disabled { background: #30363d; opacity: 0.5; cursor: not-allowed; }
         .btn-pass { background: var(--warning); color: #000; }
         .btn-discard { background: #30363d; color: #fff; border: 1px solid #8b949e; }
         .btn-stats { background: #1f6feb; color: #fff; border: 1px solid #58a6ff; }
         
-        .overclock-panel {
-            display: flex; flex-direction: column; align-items: center;
-            background: #331; padding: 10px; border: 1px solid #774;
-            border-radius: 4px; min-width: 120px;
-        }
-
-        .dice-box {
-            width: 60px; height: 60px; background: white; color: black;
-            font-size: 30px; font-weight: bold; display: flex;
-            align-items: center; justify-content: center;
-            border-radius: 8px; box-shadow: 0 0 15px rgba(255,255,255,0.2);
-        }
-
-        /* --- LOG & MODALS --- */
-        #game-log {
-            height: 150px; overflow-y: auto; background: #000;
-            border: 1px solid var(--border); padding: 10px;
-            font-size: 12px; font-family: monospace; color: #0f0;
-        }
-        .log-turn { color: var(--highlight); border-bottom: 1px solid #333; margin-top: 5px; }
-        .log-fail { color: var(--danger); }
-        .log-success { color: var(--success); }
-        .log-pass { color: var(--warning); }
-        .log-win { color: #d29922; font-weight: bold; }
-
-        /* Modal Overlays */
-        .modal-overlay { background: rgba(0,0,0,0.85); z-index: 50; }
-        .modal-content {
-            background: var(--bg-color); border: 2px solid var(--border);
-            padding: 20px; width: 90%; max-width: 900px; max-height: 85vh;
-            overflow-y: auto; border-radius: 8px; text-align: center;
-        }
-        .modal-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; padding: 10px; }
+        .overclock-panel { display: flex; flex-direction: column; align-items: center; background: #331; padding: 10px; border: 1px solid #774; border-radius: 4px; min-width: 120px; }
+        .dice-box { width: 60px; height: 60px; background: white; color: black; font-size: 30px; font-weight: bold; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
         
-        .target-btn {
-            background: #21262d; border: 1px solid var(--highlight); color: white;
-            padding: 15px; margin: 5px; cursor: pointer; border-radius: 5px; width: 200px;
-        }
+        .target-btn { background: #21262d; border: 1px solid var(--highlight); color: white; padding: 15px; margin: 5px; cursor: pointer; border-radius: 5px; width: 200px; display:inline-block; vertical-align:top; }
         .target-btn:hover { background: var(--highlight); }
-        
-        .back-btn {
-            background: #da3633; border: 1px solid #ff4444; color: white;
-            padding: 10px; margin: 5px; cursor: pointer; border-radius: 5px; width: 100%; max-width: 300px;
-            font-weight: bold;
-        }
+        .back-btn { background: #da3633; color: white; padding: 10px; margin: 10px auto; cursor: pointer; border-radius: 5px; font-weight: bold; display:block; width: 120px; }
         .back-btn:hover { background: #ff4444; }
 
-        /* --- COIN FLIP CSS --- */
-        .coin-container { display: flex; gap: 20px; justify-content: center; margin: 30px 0; perspective: 800px; }
-        .coin {
-            width: 80px; height: 80px; position: relative; transform-style: preserve-3d;
-            transition: transform 1s ease-out;
-        }
-        .coin-face {
-            position: absolute; width: 100%; height: 100%; backface-visibility: hidden;
-            border-radius: 50%; display: flex; justify-content: center; align-items: center;
-            font-size: 24px; font-weight: bold; border: 4px solid #d29922;
-        }
-        .face-heads { background: #ffd700; color: #333; transform: rotateY(0deg); }
-        .face-tails { background: #b8860b; color: #fff; transform: rotateY(180deg); }
-
-        /* --- STATS TABLE --- */
-        table.stats-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        .stats-table th, .stats-table td { border: 1px solid #444; padding: 8px; text-align: center; }
-        .stats-table th { background: #21262d; color: var(--highlight); }
-        .stats-table tr:nth-child(even) { background: #161b22; }
-
-        /* --- HUD --- */
-        .player-hud { 
-            width: 220px; background: #161b22; padding: 10px; 
-            border: 1px solid #30363d; border-radius: 4px; margin-bottom:5px;
-            position: relative;
-        }
-        .hud-header { font-weight: bold; border-bottom: 1px solid #30363d; padding-bottom: 5px; margin-bottom: 5px; display: flex; justify-content: space-between;}
+        /* HUD & LOG */
+        #game-log { height: 150px; overflow-y: auto; background: #000; border: 1px solid var(--border); padding: 10px; font-size: 12px; font-family: monospace; color: #0f0; }
+        .log-turn { color: var(--highlight); border-bottom: 1px solid #333; margin-top: 5px; }
+        .player-hud { width: 220px; background: #161b22; padding: 10px; border: 1px solid #30363d; border-radius: 4px; margin-bottom:5px; position: relative; }
+        .hud-header { font-weight: bold; border-bottom: 1px solid #30363d; padding-bottom: 5px; display: flex; justify-content: space-between; }
         .hud-stats { display: flex; gap: 10px; font-size: 11px; margin-bottom: 5px; }
         .mini-card-container { display: inline-flex; flex-direction: column; align-items: center; margin: 2px; }
-        .mini-card { 
-            display: grid; place-items: center; width: 18px; height: 18px; 
-            font-size: 10px; border-radius: 3px; border: 2px solid #444; font-weight: bold;
-        }
+        .mini-card { display: grid; place-items: center; width: 18px; height: 18px; font-size: 10px; border-radius: 3px; border: 2px solid #444; font-weight: bold; }
         .mini-val { font-size: 9px; color: #888; margin-top: 2px; }
+        
+        /* 3D ELEMENTS */
+        .coin-container { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; margin: 30px 0; perspective: 800px; }
+        .coin { width: 80px; height: 80px; position: relative; transform-style: preserve-3d; transition: transform 1s ease-out; }
+        .coin-face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 24px; border: 4px solid #d29922; }
+        .face-heads { background: #ffd700; color: #333; }
+        .face-tails { background: #b8860b; color: #fff; transform: rotateY(180deg); }
+
+        .cube { width: 100px; height: 100px; position: relative; transform-style: preserve-3d; }
+        .face { position: absolute; width: 100px; height: 100px; background: white; border: 4px solid #333; border-radius: 12px; font-size: 50px; font-weight: bold; color: black; display: flex; justify-content: center; align-items: center; }
+        .front { transform: translateZ(50px); } .back { transform: rotateY(180deg) translateZ(50px); }
+        .right { transform: rotateY(90deg) translateZ(50px); } .left { transform: rotateY(-90deg) translateZ(50px); }
+        .top { transform: rotateX(90deg) translateZ(50px); } .bottom { transform: rotateX(-90deg) translateZ(50px); }
+
+        /* FX */
+        @keyframes shake { 0%,100% { transform: translate(0,0); } 25% { transform: translate(-2px,2px); } 75% { transform: translate(2px,-2px); } }
+        @keyframes zoomFade { 0% { transform: scale(0.5); opacity: 0; } 20% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+        .fx-text { font-weight: 900; text-shadow: 0 0 10px black; animation: zoomFade 2s ease-out forwards; background: rgba(0,0,0,0.7); pointer-events: none; }
+        .fx-success { color: #44ff44; border: 3px solid #44ff44; padding: 10px 20px; border-radius: 8px; transform: rotate(-5deg); }
+        .fx-fail { color: #ff4444; border: 3px solid #ff4444; padding: 10px 20px; border-radius: 8px; transform: rotate(5deg); }
+        .element-shake { animation: shake 0.5s; }
+        
+        #tooltip { position: fixed; display: none; background: rgba(0,0,0,0.95); border: 1px solid #58a6ff; color: #fff; padding: 12px; z-index: 99999; border-radius: 6px; pointer-events: none; white-space: pre-wrap; line-height: 1.4; box-shadow: 0 4px 15px rgba(0,0,0,0.8); }
         
         .selection-group { margin: 10px 0; text-align: center; }
         .sel-btn { background: #21262d; border: 1px solid #30363d; color: white; padding: 10px 20px; margin: 0 5px; }
         .sel-btn.active { background: var(--highlight); border-color: var(--highlight); }
-
-        /* --- TOOLTIP --- */
-        #tooltip {
-            position: fixed; 
-            display: none;
-            background: rgba(0, 0, 0, 0.95);
-            border: 1px solid var(--highlight); 
-            color: #fff; 
-            padding: 12px;
-            font-size: 12px; 
-            pointer-events: none; 
-            z-index: 99999; 
-            max-width: 250px; 
-            border-radius: 6px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.8);
-            white-space: pre-wrap;
-            line-height: 1.4;
-        }
-
-        /* --- 3D DICE ANIMATION --- */
-        #dice-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85); z-index: 2000;
-            display: flex; justify-content: center; align-items: center;
-            perspective: 1000px;
-        }
-        .cube {
-            width: 100px; height: 100px; position: relative;
-            transform-style: preserve-3d;
-        }
-        .face {
-            position: absolute; width: 100px; height: 100px;
-            background: white; border: 4px solid #333; border-radius: 12px;
-            font-size: 50px; font-weight: bold; color: black;
-            display: flex; justify-content: center; align-items: center;
-            box-shadow: inset 0 0 15px #aaa;
-        }
-        .front  { transform: translateZ(50px); }
-        .back   { transform: rotateY(180deg) translateZ(50px); }
-        .right  { transform: rotateY(90deg) translateZ(50px); }
-        .left   { transform: rotateY(-90deg) translateZ(50px); }
-        .top    { transform: rotateX(90deg) translateZ(50px); }
-        .bottom { transform: rotateX(-90deg) translateZ(50px); }
-
-        /* --- VISUAL FX --- */
-        @keyframes shake {
-            0% { transform: translate(1px, 1px) rotate(0deg); }
-            10% { transform: translate(-1px, -2px) rotate(-1deg); }
-            50% { transform: translate(-1px, 2px) rotate(-1deg); }
-            100% { transform: translate(1px, -2px) rotate(-1deg); }
-        }
-        @keyframes zoomFade {
-            0% { transform: scale(0.5); opacity: 0; }
-            20% { transform: scale(1.2); opacity: 1; }
-            80% { transform: scale(1); opacity: 1; }
-            100% { transform: scale(1.5); opacity: 0; }
-        }
-        .fx-text {
-            font-weight: 900; text-shadow: 0 0 10px black; letter-spacing: 2px;
-            animation: zoomFade 2s ease-out forwards;
-            background: rgba(0,0,0,0.7);
-        }
-        .fx-success { color: #44ff44; border: 3px solid #44ff44; padding: 10px 20px; border-radius: 8px; transform: rotate(-5deg); }
-        .fx-fail { color: #ff4444; border: 3px solid #ff4444; padding: 10px 20px; border-radius: 8px; transform: rotate(5deg); }
-        .element-shake { animation: shake 0.5s; }
-
     </style>
 </head>
 <body>
@@ -280,21 +145,14 @@
 
     <div id="dice-overlay" class="hidden">
         <div class="cube" id="dice-cube">
-            <div class="face front">1</div>
-            <div class="face back">6</div>
-            <div class="face right">3</div>
-            <div class="face left">4</div>
-            <div class="face top">2</div>
-            <div class="face bottom">5</div>
+            <div class="face front">1</div><div class="face back">6</div><div class="face right">3</div><div class="face left">4</div><div class="face top">2</div><div class="face bottom">5</div>
         </div>
     </div>
 
     <div id="coin-modal" class="modal-overlay hidden">
-        <div class="modal-content" style="max-width:500px">
+        <div class="modal-content" style="max-width:600px">
             <h2>TOKEN DROP</h2>
-            <div style="color:#888; margin-bottom:20px;">
-                Flipping 4 Tokens...<br>⭐ = Most Points | 🎨 = 5 Colors
-            </div>
+            <div id="token-subtitle" style="color:#888; margin-bottom:20px;">Flipping Tokens...<br>⭐ = Most Points | 🎨 = First to 5 Colors</div>
             <div id="coin-area" class="coin-container"></div>
             <div id="coin-result" style="font-size:20px; font-weight:bold; margin:20px 0; color:var(--highlight); min-height:30px;"></div>
             <button id="btn-drop" class="btn-play" onclick="executeCoinDrop()">DROP TOKENS</button>
@@ -304,69 +162,47 @@
 
     <div id="start-screen">
         <h1 style="font-size: 40px; color: var(--highlight);">CYBER STACK</h1>
-        <div style="color: var(--warning); font-size: 14px; margin-bottom: 20px;">// v4.0 TOKEN DROP //</div>
-        
+        <div style="color: var(--warning); font-size: 14px; margin-bottom: 20px;">// v4.1 BALANCED //</div>
         <div class="selection-group">
             <div>HUMAN PLAYERS</div>
-            <button class="sel-btn active" onclick="setSetup('p', 1)">1</button>
-            <button class="sel-btn" onclick="setSetup('p', 2)">2</button>
-            <button class="sel-btn" onclick="setSetup('p', 3)">3</button>
-            <button class="sel-btn" onclick="setSetup('p', 4)">4</button>
+            <button class="sel-btn active" onclick="setSetup('p', 1)">1</button><button class="sel-btn" onclick="setSetup('p', 2)">2</button><button class="sel-btn" onclick="setSetup('p', 3)">3</button><button class="sel-btn" onclick="setSetup('p', 4)">4</button>
         </div>
-
         <div class="selection-group">
             <div>CPU OPPONENTS</div>
-            <button class="sel-btn" onclick="setSetup('b', 0)">0</button>
-            <button class="sel-btn active" onclick="setSetup('b', 1)">1</button>
-            <button class="sel-btn" onclick="setSetup('b', 2)">2</button>
-            <button class="sel-btn" onclick="setSetup('b', 3)">3</button>
+            <button class="sel-btn" onclick="setSetup('b', 0)">0</button><button class="sel-btn active" onclick="setSetup('b', 1)">1</button><button class="sel-btn" onclick="setSetup('b', 2)">2</button><button class="sel-btn" onclick="setSetup('b', 3)">3</button>
         </div>
-
         <button class="btn-play" style="margin-top:20px; width: 200px;" onclick="startGame()">INITIALIZE</button>
     </div>
 
     <div id="discard-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                <h2>DISCARD PILE</h2>
-                <button class="btn-pass" onclick="toggleDiscard()">CLOSE</button>
-            </div>
+            <h2>DISCARD PILE</h2><button class="btn-pass" onclick="toggleDiscard()">CLOSE</button>
             <div id="discard-grid" class="modal-grid"></div>
         </div>
     </div>
-
+    
     <div id="select-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <div style="display:flex; justify-content:center; align-items:center; margin-bottom:15px;">
-                <h2 id="select-title">CHOOSE TARGET</h2>
-            </div>
+            <h2 id="select-title">TARGET</h2>
             <div id="select-grid" class="modal-grid"></div>
-            <div id="select-status" style="margin-top:10px; color:#888;"></div>
+            <div id="select-status"></div>
         </div>
     </div>
-
+    
     <div id="stats-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                <h2>GAME LOG & STATS</h2>
-                <button class="btn-pass" onclick="toggleStats()">CLOSE</button>
-            </div>
-            <div style="font-size:11px; color:#888; margin-bottom:10px;">Tracking data for ALL players across ALL rounds.</div>
+            <h2>STATS</h2><button class="btn-pass" onclick="toggleStats()">CLOSE</button>
             <div id="stats-container"></div>
         </div>
     </div>
 
-    <h1>CYBER STACK <span style="font-size:0.5em; color:#666">v4.0</span></h1>
-    <div class="subtitle">// ROUND <span id="game-round">1</span> OF 3 // TRIGGER: 5 COLORS //</div>
-
     <div id="game-root" class="game-container hidden">
-        
-        <div style="display:flex; justify-content:center; width:100%;">
+        <div style="display:flex; justify-content:center; width:100%; margin-bottom:10px;">
             <div class="pot-display">
-                <span style="font-size:10px; color:#888;">ROUND STAKES:</span>
-                <span id="pot-points" style="color:var(--success); font-weight:bold;">⭐ 0</span>
-                <span style="color:#444;">|</span>
-                <span id="pot-finisher" style="color:var(--highlight); font-weight:bold;">🎨 0</span>
+                <span style="color:#888;">STAKES:</span>
+                <span id="pot-points" style="color:var(--success);">⭐ 0</span>
+                <span>|</span>
+                <span id="pot-finisher" style="color:var(--highlight);">🎨 0</span>
             </div>
         </div>
 
@@ -374,50 +210,29 @@
 
         <div class="controls">
             <div id="dice-display" class="dice-box">?</div>
-            
             <div class="overclock-panel">
-                <div style="font-size: 12px; margin-bottom: 5px; color: #fe9;">OVERCLOCK</div>
-                <div style="font-size: 10px; color: #888;">Right-Click Hand</div>
-                <div id="bonus-display" style="font-size: 18px; font-weight: bold; color: #fe9;">+0</div>
+                <div>OVERCLOCK</div><div style="font-size:10px; color:#888;">Right-Click</div>
+                <div id="bonus-display" style="font-size:18px; color:#fe9;">+0</div>
             </div>
-
             <div class="btn-group">
-                <button id="btn-roll" class="btn-play" onclick="commitTurn()">CONFIRM</button>
-                <button id="btn-pass" class="btn-pass" onclick="passTurn()">REBOOT (PASS)</button>
+                <button id="btn-roll" class="btn-play" onclick="commitTurn()">CONFIRM MOVE</button>
+                <button id="btn-pass" class="btn-pass" onclick="passTurn()">REBOOT</button>
                 <button id="btn-disc" class="btn-discard" onclick="toggleDiscard()">DISCARD</button>
                 <button id="btn-stats" class="btn-stats" onclick="toggleStats()">STATS</button>
             </div>
-            
-            <div style="text-align: left; font-size: 12px;">
+            <div style="text-align:left; font-size:12px;">
                 <div>TURN: <span id="turn-display">1</span></div>
-                <div>PHASE: <span id="phase-display" style="color: var(--highlight)">PLANNING</span></div>
+                <div>PHASE: <span id="phase-display" style="color:var(--highlight)">PLANNING</span></div>
             </div>
         </div>
 
         <div class="player-area" id="player-main-area">
             <div id="active-player-name" class="turn-indicator">PLAYER 1</div>
-
             <div class="info-panel">
-                <div>
-                    <strong>CURRENT SCORE:</strong> 
-                    <span id="player-score" style="color: var(--success); margin-left: 10px; font-size: 1.2em;">0 VP</span>
-                    <span id="total-score-display" style="color: #888; font-size: 0.8em; margin-left:10px;">(Total: 0)</span>
-                    <span id="player-tokens" style="color: #d29922; font-size: 1.2em; margin-left:15px;">🪙 0</span>
-                </div>
-                <div>
-                    <span id="hand-count" style="color: #fff;">Hand: 0/5</span> | 
-                    <span id="colors-status" style="color: var(--highlight);">Colors: 0/5</span>
-                </div>
-            </div>
-
-            <div style="font-size: 12px; color: #888; margin-bottom: 5px;">
-                SCORE PILE (Collect 5 Distinct Colors to End Round):
+                <div>SCORE: <span id="player-score" style="color:var(--success);">0 VP</span> <span id="total-score-display" style="color:#888;">(0)</span> <span id="player-tokens" style="color:#d29922;">🪙 0</span></div>
+                <div><span id="hand-count">Hand: 0/5</span> | <span id="colors-status">Colors: 0/5</span></div>
             </div>
             <div id="player-score-pile" class="card-zone"></div>
-
-            <div style="font-size: 12px; color: #888; margin-bottom: 5px;">
-                HAND (Ammo) | Right-Click to Burn (+1 Roll)
-            </div>
             <div id="player-hand" class="card-zone"></div>
         </div>
 
@@ -425,31 +240,25 @@
     </div>
 
 <script>
-/* --- CONFIG --- */
+/* --- CONFIGURATION --- */
 const COLORS = ["Red", "Blue", "Green", "Yellow", "Purple"];
-const STARTING_HAND = 3;
-const MAX_HAND = 5;
+const STARTING_HAND = 3; 
+const MAX_HAND = 5; 
 const TRIGGER_COLORS = 5; 
 const TOTAL_ROUNDS = 3;
 
-/* --- STATE --- */
-let deck = [];
-let discardPile = [];
-let players = [];
-let turnCount = 1;
-let currentRound = 1;
-let activePlayerIdx = 0; 
-let gameOver = false;
-let setupP = 1;
-let setupB = 1;
+/* --- STATE VARIABLES --- */
+let deck = [], discardPile = [], players = [];
+let turnCount = 1, currentRound = 1, activePlayerIdx = 0;
+let setupP = 1, setupB = 1;
 let pauseForInteraction = false;
 let cardStats = {};
-let matchPot = { points: 0, finisher: 0 }; // NEW POT SYSTEM
+let matchPot = { points: 2, finisher: 2 };
 
 /* --- CLASSES --- */
 class Card {
     constructor(s1, s2) {
-        this.id = Math.random().toString(36).substr(2, 9);
+        this.id = Math.random().toString(36).substr(2,9);
         this.sides = [s1, s2];
         this.selectedSide = 0; 
         this.isBurning = false; 
@@ -469,81 +278,36 @@ class Player {
         this.totalScore = 0;
         this.tokens = 0; 
     }
-
     getRoundScore() {
         let s = 0;
         this.scorePile.forEach(c => s += c.sides[c.selectedSide].value);
         this.cache.forEach(c => s += c.sides[c.selectedSide].value);
         return s;
     }
-
     getUniqueColors() {
-        let colorSet = new Set();
-        let wildCount = 0;
-        this.scorePile.forEach(c => {
-            let s = c.sides[c.selectedSide];
-            if(s.type === 'Color') colorSet.add(s.name);
-            if(s.type === 'Wild') wildCount++;
+        let s = new Set(), w = 0;
+        this.scorePile.forEach(c => { 
+            let side = c.sides[c.selectedSide];
+            if(side.type==='Color') s.add(side.name); 
+            if(side.type==='Wild') w++; 
         });
-        return Math.min(TRIGGER_COLORS, colorSet.size + wildCount); 
+        return Math.min(TRIGGER_COLORS, s.size + w); 
     }
-
     resetForRound() {
-        this.hand = [];
-        this.scorePile = [];
-        this.cache = [];
-        this.passed = false;
-        this.selection = null;
-        this.bonus = 0;
+        this.hand = []; this.scorePile = []; this.cache = [];
+        this.passed = false; this.selection = null; this.bonus = 0;
     }
 }
 
-/* --- STATS LOGIC --- */
-function getCardKey(card) {
-    return card.sides[0].name + " / " + card.sides[1].name;
-}
-function updateStat(card, action, sIdx) {
-    let key = getCardKey(card);
-    if (!cardStats[key]) cardStats[key] = { played:0, s0:0, s1:0, success:0, fail:0, burned:0 };
-    if (action === 'burn') cardStats[key].burned++;
-    else if (action === 'play') {
-        cardStats[key].played++;
-        if(sIdx === 0) cardStats[key].s0++;
-        else cardStats[key].s1++;
-    } else if (action === 'success') cardStats[key].success++;
-    else if (action === 'fail') cardStats[key].fail++;
-}
-function renderStats() {
-    let container = document.getElementById('stats-container');
-    let html = `<table class="stats-table"><thead><tr><th>CARD</th><th>PLAYED</th><th>S1 USED</th><th>S2 USED</th><th>SUCCESS</th><th>FAILED</th><th>BURNED</th><th>WIN RATE</th></tr></thead><tbody>`;
-    Object.keys(cardStats).sort().forEach(key => {
-        let d = cardStats[key];
-        let totalRes = d.success + d.fail;
-        let wr = totalRes > 0 ? Math.round((d.success / totalRes) * 100) + "%" : "-";
-        let names = key.split(' / ');
-        let s1Pct = d.played > 0 ? Math.round((d.s0 / d.played)*100) : 0;
-        let s2Pct = d.played > 0 ? Math.round((d.s1 / d.played)*100) : 0;
-        html += `<tr><td style="font-weight:bold; color:#ddd;">${key}</td><td>${d.played}</td><td><span style="color:${getColorHex(names[0])}">${names[0]}</span> (${s1Pct}%)</td><td><span style="color:${getColorHex(names[1])}">${names[1]}</span> (${s2Pct}%)</td><td style="color:#238636">${d.success}</td><td style="color:#da3633">${d.fail}</td><td style="color:#d29922">${d.burned}</td><td>${wr}</td></tr>`;
-    });
-    html += `</tbody></table>`;
-    container.innerHTML = html;
-}
-function getColorHex(name) {
-    if(name === 'Red') return '#ff4444';
-    if(name === 'Blue') return '#4444ff';
-    if(name === 'Green') return '#44ff44';
-    if(name === 'Yellow') return '#ffff44';
-    if(name === 'Purple') return '#aa44ff';
-    return '#888';
-}
-
-/* --- SETUP & INIT --- */
-function setSetup(type, val) {
-    if(type === 'p') setupP = val;
-    if(type === 'b') setupB = val;
-    let group = type === 'p' ? document.querySelectorAll('.selection-group')[0] : document.querySelectorAll('.selection-group')[1];
-    Array.from(group.querySelectorAll('.sel-btn')).forEach(b => b.classList.remove('active'));
-    event.target.classList.add('active');
+/* --- INITIALIZATION --- */
+function setSetup(t, v) {
+    if(t==='p') setupP=v; 
+    if(t==='b') setupB=v; 
+    let g = t==='p'?0:1; 
+    let btns = document.querySelectorAll('.selection-group')[g].querySelectorAll('.sel-btn');
+    btns.forEach(b => b.classList.remove('active')); 
+    // Match the button text to the selected value
+    btns.forEach(b => { if(parseInt(b.innerText) === v) b.classList.add('active'); });
 }
 
 function startGame() {
@@ -557,59 +321,48 @@ function startGame() {
 }
 
 function startNewRound() {
-    turnCount = 1;
-    deck = generateDeck();
-    discardPile = [];
+    turnCount = 1; deck = generateDeck(); discardPile = [];
     players.forEach(p => { p.resetForRound(); drawCards(p, STARTING_HAND); });
-    document.getElementById('game-round').innerText = currentRound;
-    
-    // TRIGGER DROP
+    document.getElementById('turn-display').innerText = currentRound;
     openCoinModal();
 }
 
 /* --- TOKEN DROP SYSTEM --- */
 function openCoinModal() {
-    let modal = document.getElementById('coin-modal');
-    let area = document.getElementById('coin-area');
-    let btnDrop = document.getElementById('btn-drop');
-    let btnStart = document.getElementById('btn-start-round');
-    let res = document.getElementById('coin-result');
+    let modal = document.getElementById('coin-modal'), area = document.getElementById('coin-area');
     
-    area.innerHTML = '';
-    res.innerText = '';
-    btnDrop.classList.remove('hidden');
-    btnStart.classList.add('hidden');
+    // Scale tokens based on the current round (R1=2, R2=4, R3=6)
+    let tokenCount = currentRound * 2; 
     
-    // Create 4 Coins
-    for(let i=0; i<4; i++) {
-        let coin = document.createElement('div');
-        coin.className = 'coin';
-        coin.innerHTML = `<div class="coin-face face-heads">⭐</div><div class="coin-face face-tails">🎨</div>`;
-        area.appendChild(coin);
+    // Update the subtitle text to show the correct number
+    document.getElementById('token-subtitle').innerHTML = `Flipping ${tokenCount} Tokens...<br>⭐ = Most Points | 🎨 = First to 5 Colors`;
+    
+    area.innerHTML = ''; document.getElementById('coin-result').innerText = '';
+    document.getElementById('btn-drop').classList.remove('hidden');
+    document.getElementById('btn-start-round').classList.add('hidden');
+    
+    // Spawn the dynamic number of tokens
+    for(let i=0; i<tokenCount; i++) {
+        let c = document.createElement('div'); c.className = 'coin';
+        c.innerHTML = `<div class="coin-face face-heads">⭐</div><div class="coin-face face-tails">🎨</div>`;
+        area.appendChild(c);
     }
-    
     modal.classList.remove('hidden');
 }
 
 function executeCoinDrop() {
-    let coins = document.querySelectorAll('.coin');
+    let coins = document.querySelectorAll('.coin'); 
     matchPot = { points: 0, finisher: 0 };
-    
-    coins.forEach((c, i) => {
-        let isHeads = Math.random() > 0.5;
-        let rot = isHeads ? 0 : 180;
-        let extraRot = 720 + (Math.floor(Math.random()*3)*360); 
-        
-        c.style.transform = `rotateY(${rot + extraRot}deg)`;
-        
-        if (isHeads) matchPot.points++;
-        else matchPot.finisher++;
+    coins.forEach(c => {
+        let h = Math.random() > 0.5;
+        let rot = h ? 0 : 180;
+        let extra = 720 + (Math.floor(Math.random()*3)*360);
+        c.style.transform = `rotateY(${rot + extra}deg)`; 
+        if(h) matchPot.points++; else matchPot.finisher++;
     });
-    
     document.getElementById('btn-drop').classList.add('hidden');
-    
     setTimeout(() => {
-        document.getElementById('coin-result').innerText = `RESULT: ${matchPot.points} PTS (⭐) | ${matchPot.finisher} FINISHER (🎨)`;
+        document.getElementById('coin-result').innerText = `RESULT: ${matchPot.points} PTS | ${matchPot.finisher} FINISHER`;
         document.getElementById('btn-start-round').classList.remove('hidden');
     }, 1200);
 }
@@ -617,627 +370,425 @@ function executeCoinDrop() {
 function closeCoinModal() {
     document.getElementById('coin-modal').classList.add('hidden');
     log(`=== ROUND ${currentRound} START === POT: ${matchPot.points}⭐ / ${matchPot.finisher}🎨`);
-    updateUI();
-    activePlayerIdx = 0;
+    activePlayerIdx = 0; updateUI();
 }
 
-/* --- DECK --- */
+/* --- DECK GENERATION --- */
 function generateDeck() {
     let d = [];
-    // Colors
-    for(let i=0; i<COLORS.length; i++) {
-        for(let j=i+1; j<COLORS.length; j++) {
-            d.push(new Card({name:COLORS[i], type:'Color', target:5, value:4}, {name:COLORS[j], type:'Color', target:3, value:1}));
-            d.push(new Card({name:COLORS[i], type:'Color', target:4, value:3}, {name:COLORS[j], type:'Color', target:4, value:3}));
-            d.push(new Card({name:COLORS[i], type:'Color', target:3, value:2}, {name:COLORS[j], type:'Color', target:5, value:4}));
-        }
+    for(let i=0; i<COLORS.length; i++) for(let j=i+1; j<COLORS.length; j++) {
+        d.push(new Card({name:COLORS[i], type:'Color', target:5, value:3}, {name:COLORS[j], type:'Color', target:3, value:1}));
+        d.push(new Card({name:COLORS[i], type:'Color', target:4, value:2}, {name:COLORS[j], type:'Color', target:4, value:2}));
+        d.push(new Card({name:COLORS[i], type:'Color', target:3, value:1}, {name:COLORS[j], type:'Color', target:5, value:3}));
     }
-    COLORS.forEach(c => d.push(new Card({name:'Wild', type:'Wild', target:6, value:5}, {name:c, type:'Color', target:2, value:1})));
-    
-    // Actions: FLIP replaces DATA CACHE
-    for(let i=0; i<5; i++) {
-        d.push(new Card({name:'Draw +2', type:'Action', effect:'Draw +2', target:4, value:0}, {name:'Flip', type:'Action', effect:'Flip', target:4, value:0}));
-    }
-    for(let i=0; i<4; i++) {
-        d.push(new Card({name:'Steal', type:'Action', effect:'Steal', target:4, value:0}, {name:'Scavenge', type:'Action', effect:'Scavenge', target:3, value:0}));
-    }
+    COLORS.forEach(c => d.push(new Card({name:'Wild', type:'Wild', target:6, value:4}, {name:c, type:'Color', target:2, value:0})));
+    for(let i=0; i<5; i++) d.push(new Card({name:'Draw +2', type:'Action', effect:'Draw +2', target:4, value:0}, {name:'Flip', type:'Action', effect:'Flip', target:4, value:0}));
+    for(let i=0; i<4; i++) d.push(new Card({name:'Steal', type:'Action', effect:'Steal', target:4, value:0}, {name:'Draw +1', type:'Action', effect:'Draw +1', target:2, value:0}));
     return shuffle(d);
 }
-
-function shuffle(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-    }
-    return array;
-}
-
-function drawCards(p, count) {
-    for(let i=0; i<count; i++) {
-        if(deck.length === 0 && discardPile.length > 0) {
-            deck = shuffle([...discardPile]); discardPile = [];
-        }
-        if(deck.length > 0) {
-            if(p.hand.length < MAX_HAND) p.hand.push(deck.pop());
-            else discardPile.push(deck.pop());
-        }
+function shuffle(a) { for(let i=a.length-1; i>0; i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function drawCards(p, n) {
+    for(let i=0; i<n; i++) {
+        if(deck.length===0 && discardPile.length>0) { deck = shuffle([...discardPile]); discardPile = []; }
+        if(deck.length>0) { if(p.hand.length<MAX_HAND) p.hand.push(deck.pop()); else discardPile.push(deck.pop()); }
     }
 }
 
-/* --- GAME LOOP --- */
+/* --- GAME TURN LOGIC --- */
 function passTurn() {
-    let p = players[activePlayerIdx];
+    let p = players[activePlayerIdx]; 
     p.passed = true; p.selection = null; p.bonus = 0;
-    p.hand.forEach(c => c.isBurning = false);
-    log(`${p.name} REBOOTS (Pass).`);
+    p.hand.forEach(c => c.isBurning = false); 
+    log(`${p.name} PASSES.`); 
     advanceQueue();
 }
 
 function commitTurn() {
     let p = players[activePlayerIdx];
-    if (!p.selection) { alert("Select a card to play first!"); return; }
-    p.bonus = 0; let finalHand = [];
-    p.hand.forEach(c => {
-        if (c.isBurning) { discardPile.push(c); updateStat(c, 'burn'); p.bonus++; } 
-        else finalHand.push(c);
+    if(!p.selection) { alert("Select a card!"); return; }
+    p.bonus = 0; let fh = [];
+    p.hand.forEach(c => { 
+        if(c.isBurning) { discardPile.push(c); p.bonus++; } 
+        else fh.push(c); 
     });
-    p.hand = finalHand;
-    if (!p.hand.includes(p.selection.card)) { p.passed = true; p.selection = null; }
+    p.hand = fh;
+    if(!p.hand.includes(p.selection.card)) { p.passed = true; p.selection = null; }
     advanceQueue();
 }
 
 function advanceQueue() {
     activePlayerIdx++;
-    if(activePlayerIdx < players.length && !players[activePlayerIdx].isBot) updateUI();
-    else { processBots(); triggerDiceRoll(); }
+    if(activePlayerIdx < players.length && !players[activePlayerIdx].isBot) {
+        updateUI();
+    } else { 
+        processBots(); 
+        triggerDiceRoll(); 
+    }
 }
 
 function triggerDiceRoll() {
-    let overlay = document.getElementById('dice-overlay');
-    let cube = document.getElementById('dice-cube');
+    let overlay = document.getElementById('dice-overlay'), cube = document.getElementById('dice-cube');
     cube.style.transition = 'none'; cube.style.transform = 'rotateX(0deg) rotateY(0deg)';
     void cube.offsetWidth; overlay.classList.remove('hidden');
     
-    let roll = Math.floor(Math.random() * 6) + 1;
-    let xBase = 720 + (Math.floor(Math.random() * 2) * 360); 
-    let yBase = 720 + (Math.floor(Math.random() * 2) * 360);
-    let target = getRotationFor(roll);
-    
+    let roll = Math.floor(Math.random()*6)+1;
     setTimeout(() => {
-        cube.style.transition = 'transform 1.2s cubic-bezier(0.1, 0.7, 0.1, 1)'; 
-        cube.style.transform = `rotateX(${xBase + target.x}deg) rotateY(${yBase + target.y}deg)`;
-    }, 50); 
-
-    setTimeout(() => { overlay.classList.add('hidden'); executeRound(roll); }, 1500);
+        cube.style.transition = 'transform 1.2s cubic-bezier(0.1,0.7,0.1,1)';
+        let rx = 720 + (roll===2?-90:roll===5?90:0);
+        let ry = 720 + (roll===6?180:roll===3?-90:roll===4?90:0);
+        cube.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
+    }, 50);
+    
+    setTimeout(() => { 
+        overlay.classList.add('hidden'); 
+        executeRound(roll); 
+    }, 1500);
 }
 
-function getRotationFor(num) {
-    switch(num) {
-        case 1: return {x: 0, y: 0};
-        case 6: return {x: 0, y: 180}; 
-        case 2: return {x: -90, y: 0}; 
-        case 5: return {x: 90, y: 0};  
-        case 3: return {x: 0, y: -90}; 
-        case 4: return {x: 0, y: 90};  
-    }
-    return {x:0, y:0};
-}
-
-/* --- EXECUTION --- */
-function processBots() {
-    players.filter(p => p.isBot).forEach(bot => {
-        bot.bonus = 0; bot.passed = false; bot.selection = null;
-        if (bot.hand.length === 0) { bot.passed = true; return; }
-        
-        let best = null; let bestScore = -99;
-        bot.hand.forEach((c, idx) => {
-            c.sides.forEach((s, sIdx) => {
-                let score = s.value + (6 - s.target);
-                if(s.type === 'Color' && !hasColor(bot, s.name)) score += 5;
-                if(score > bestScore) { bestScore = score; best = {card:c, side:sIdx}; }
-            });
-        });
-
-        if(best) {
-            bot.selection = {card: best.card, sideIndex: best.side};
-            if(best.card.sides[best.side].target >= 5 && bot.hand.length > 3) {
-                let burn = bot.hand.find(c => c !== best.card);
-                if(burn) {
-                    bot.hand = bot.hand.filter(x => x!==burn);
-                    discardPile.push(burn); updateStat(burn, 'burn'); bot.bonus = 1;
-                }
-            }
-        } else bot.passed = true;
-    });
-}
-
-function hasColor(p, name) {
-    return p.scorePile.some(c => c.sides[c.selectedSide].name === name);
-}
-
-function executeRound(baseRoll) {
-    document.getElementById('dice-display').innerText = baseRoll;
-    log(`--- TURN ${turnCount} | ROLL: [ ${baseRoll} ] ---`, true);
+function executeRound(roll) {
+    document.getElementById('dice-display').innerText = roll;
+    log(`--- TURN ${turnCount} | ROLL: ${roll} ---`, true);
+    
+    // RESET PAUSE FLAG
     pauseForInteraction = false;
-    players.filter(p => p.isBot).forEach(p => resolvePlayer(p, baseRoll));
-    players.filter(p => !p.isBot).forEach(p => resolvePlayer(p, baseRoll));
-    if (!pauseForInteraction) setTimeout(finishTurnSequence, 2500);
+    
+    try {
+        // Resolve Bots First (Instant)
+        players.filter(p=>p.isBot).forEach(p=>resolvePlayer(p, roll));
+        
+        // Resolve Humans
+        players.filter(p=>!p.isBot).forEach(p=>resolvePlayer(p, roll));
+    } catch(e) { console.error("Error in Execution:", e); }
+
+    // IF NO PLAYER IS CURRENTLY INTERACTING, FINISH
+    if(!pauseForInteraction) {
+        setTimeout(finishTurnSequence, 1500);
+    } else {
+        document.getElementById('phase-display').innerText = "WAITING FOR PLAYER...";
+    }
 }
 
 function finishTurnSequence() {
-    let finisher = players.find(p => p.getUniqueColors() >= TRIGGER_COLORS);
-    if(finisher) endRound(finisher);
-    else {
-        players.forEach(p => {
-            drawCards(p, 1); p.selection = null; p.passed = false; p.bonus = 0;
-            p.hand.forEach(c => c.isBurning = false);
-        });
-        activePlayerIdx = 0; turnCount++; updateUI();
-    }
-}
-
-function triggerVisualFX(type, p) {
-    let hudId = `hud-p${players.indexOf(p)}`;
-    let targetEl = document.getElementById(hudId);
-    if (!targetEl) targetEl = document.getElementById('player-main-area');
-    if (!targetEl) return;
-
-    let wrapper = document.createElement('div');
-    wrapper.style.position = "absolute"; wrapper.style.top = "50%"; wrapper.style.left = "50%";
-    wrapper.style.transform = "translate(-50%, -50%)"; wrapper.style.zIndex = "100";
-    wrapper.style.pointerEvents = "none"; wrapper.style.width = "100%"; wrapper.style.textAlign = "center";
-
-    let text = document.createElement('div');
-    text.className = `fx-text ${type === 'success' ? 'fx-success' : 'fx-fail'}`;
-    text.innerText = type === 'success' ? "SUCCESS" : "FAILURE";
+    document.getElementById('phase-display').innerText = "PLANNING";
+    let f = players.find(p => p.getUniqueColors() >= TRIGGER_COLORS);
     
-    if (targetEl.classList.contains('player-hud')) {
-        text.style.fontSize = "20px"; text.style.padding = "5px 10px"; text.style.borderWidth = "2px";
-    } else text.style.fontSize = "60px";
-
-    wrapper.appendChild(text); targetEl.appendChild(wrapper);
-    if (type === 'fail') {
-        targetEl.classList.add('element-shake');
-        setTimeout(() => targetEl.classList.remove('element-shake'), 500);
+    if(f) {
+        endRound(f);
+    } else {
+        players.forEach(p => { 
+            drawCards(p,1); 
+            p.selection=null; 
+            p.passed=false; 
+            p.bonus=0; 
+            p.hand.forEach(c=>c.isBurning=false); 
+        });
+        activePlayerIdx = 0; 
+        turnCount++; 
+        updateUI();
     }
-    setTimeout(() => wrapper.remove(), 2000);
 }
 
-function resolvePlayer(p, baseRoll) {
+function resolvePlayer(p, roll) {
     if(p.passed || !p.selection) return;
+    let card = p.selection.card, sIdx = p.selection.sideIndex, side = card.sides[sIdx];
+    let total = roll + p.bonus;
+    
+    // Remove card from hand
+    let hIdx = p.hand.indexOf(card); 
+    if(hIdx>-1) p.hand.splice(hIdx,1);
 
-    let card = p.selection.card;
-    let sIdx = p.selection.sideIndex;
-    let side = card.sides[sIdx];
-    let total = baseRoll + p.bonus;
-
-    updateStat(card, 'play', sIdx);
-    let hIdx = p.hand.indexOf(card);
-    if(hIdx > -1) p.hand.splice(hIdx, 1);
+    // Stats
+    let key = side.name; if(!cardStats[key]) cardStats[key]={played:0,success:0,fail:0};
+    cardStats[key].played++;
 
     if(total >= side.target) {
         log(`${p.name} Success: ${side.name}`, false, 'success');
-        updateStat(card, 'success'); triggerVisualFX('success', p);
+        cardStats[key].success++; 
+        triggerVisualFX('success', p);
         card.selectedSide = sIdx;
         
-        if (side.effect === 'Draw +2') {
-            drawCards(p, 2); log(`> Draw +2 executed!`); discardPile.push(card);
-        } else if (side.effect === 'Steal') {
-            discardPile.push(card); 
-            if (!p.isBot) { pauseForInteraction = true; openPlayerSelectUI(p, 'STEAL'); } 
-            else handleBotSteal(p);
-        } else if (side.effect === 'Scavenge') {
-            discardPile.push(card); 
-            if (!p.isBot) { pauseForInteraction = true; openScavengeUI(p); } 
-            else if(discardPile.length > 0) p.hand.push(discardPile.pop());
-        } else if (side.effect === 'Flip') {
+        if(side.effect === 'Draw +2') { 
+            drawCards(p, 2); log(`> Draw +2 executed!`); discardPile.push(card); 
+        }
+        else if (side.effect === 'Draw +1') {
+            drawCards(p, 1); log(`> Draw +1 executed!`); discardPile.push(card); 
+        }
+        else if(side.effect === 'Steal') {
             discardPile.push(card);
-            if (!p.isBot) { pauseForInteraction = true; openPlayerSelectUI(p, 'FLIP'); }
-            else handleBotFlip(p);
-        } else if (side.type === 'Point') p.cache.push(card);
-        else p.scorePile.push(card);
+            if(!p.isBot) { 
+                pauseForInteraction = true; 
+                openPlayerSelectUI(p, 'STEAL'); 
+            } else { 
+                handleBotSteal(p); 
+            }
+        }
+        else if(side.effect === 'Flip') {
+            discardPile.push(card);
+            if(!p.isBot) { 
+                pauseForInteraction = true; 
+                openPlayerSelectUI(p, 'FLIP'); 
+            } else { 
+                handleBotFlip(p); 
+            }
+        }
+        else if(side.type === 'Point') { 
+            p.cache.push(card); 
+        }
+        else { 
+            p.scorePile.push(card); 
+        }
     } else {
-        log(`${p.name} Fails ${side.name} (Rolled ${total})`, false, 'fail');
-        updateStat(card, 'fail'); triggerVisualFX('fail', p); discardPile.push(card);
+        log(`${p.name} Fails ${side.name}`, false, 'fail');
+        cardStats[key].fail++; 
+        triggerVisualFX('fail', p); 
+        discardPile.push(card);
     }
 }
 
-/* --- INTERACTIVE UI --- */
-function openPlayerSelectUI(player, mode) {
-    let modal = document.getElementById('select-modal');
-    let grid = document.getElementById('select-grid');
-    let title = document.getElementById('select-title');
-    let status = document.getElementById('select-status');
+/* --- UI & INTERACTION --- */
+function triggerVisualFX(type, p) {
+    let id = (p===players[0]) ? 'player-main-area' : `hud-p${players.indexOf(p)}`;
+    let el = document.getElementById(id); if(!el) return;
     
-    title.innerText = mode === 'STEAL' ? "CHOOSE VICTIM" : "FLIP TARGET";
-    status.innerText = mode === 'STEAL' ? "Select opponent to steal from." : "Select ANY player to flip a card.";
-    grid.innerHTML = "";
+    let box = document.createElement('div');
+    box.style.position="absolute"; box.style.top="50%"; box.style.left="50%"; 
+    box.style.transform="translate(-50%,-50%)"; box.style.zIndex="100"; box.style.pointerEvents="none";
+    
+    let txt = document.createElement('div');
+    txt.className = `fx-text ${type==='success'?'fx-success':'fx-fail'}`;
+    txt.innerText = type==='success'?"SUCCESS":"FAILURE";
+    
+    if(p!==players[0]) { txt.style.fontSize="20px"; txt.style.padding="5px"; } 
+    else txt.style.fontSize="60px";
+    
+    box.appendChild(txt); el.appendChild(box);
+    if(type==='fail') { el.classList.add('element-shake'); setTimeout(()=>el.classList.remove('element-shake'),500); }
+    setTimeout(()=>box.remove(), 2000);
+}
+
+function openPlayerSelectUI(player, mode) {
+    let modal = document.getElementById('select-modal'), grid = document.getElementById('select-grid');
+    document.getElementById('select-title').innerText = mode==='STEAL'?"STEAL FROM...":"FLIP WHO?";
+    document.getElementById('select-status').innerText = ""; grid.innerHTML = "";
     
     let targets = players.filter(v => v.scorePile.length > 0);
-    if (mode === 'STEAL') targets = targets.filter(v => v !== player); // Can't steal from self
+    if(mode==='STEAL') targets = targets.filter(v => v !== player);
     
-    if (targets.length === 0) {
-        log(`> No valid targets for ${mode}.`);
-        modal.classList.add('hidden'); pauseForInteraction = false; finishTurnSequence(); return;
+    // IF NO TARGETS, RESUME
+    if(targets.length === 0) { 
+        log(`> No valid targets.`); 
+        modal.classList.add('hidden'); 
+        pauseForInteraction=false; 
+        finishTurnSequence(); 
+        return; 
     }
     
     modal.classList.remove('hidden');
+    
     targets.forEach(v => {
-        let btn = document.createElement('div');
-        btn.className = 'target-btn';
-        btn.innerHTML = `<b>${v.name}</b><br>${v.scorePile.length} Cards`;
-        btn.onclick = () => {
-            if(mode === 'STEAL') showStealCards(player, v);
-            else showFlipCards(player, v);
-        };
-        grid.appendChild(btn);
+        let b = document.createElement('div'); b.className = 'target-btn';
+        b.innerHTML = `<b>${v.name}</b><br>${v.scorePile.length} Cards`;
+        b.onclick = () => { if(mode==='STEAL') showStealCards(player,v); else showFlipCards(player,v); };
+        grid.appendChild(b);
     });
 }
 
 function showStealCards(player, victim) {
-    let grid = document.getElementById('select-grid');
-    let title = document.getElementById('select-title');
-    let status = document.getElementById('select-status');
-    title.innerText = `STEAL FROM ${victim.name}`;
-    status.innerText = "Click a card to steal it.";
-    grid.innerHTML = "";
-    
-    let backBtn = document.createElement('div');
-    backBtn.className = 'back-btn';
-    backBtn.innerText = "⬅ GO BACK";
-    backBtn.onclick = () => openPlayerSelectUI(player, 'STEAL');
-    document.getElementById('select-modal').querySelector('.modal-content').insertBefore(backBtn, document.getElementById('select-status'));
-    let oldBtns = document.querySelectorAll('.back-btn');
-    oldBtns.forEach(b => { if(b !== backBtn) b.remove(); }); 
+    let grid = document.getElementById('select-grid'); grid.innerHTML = '';
+    addBackBtn(player, 'STEAL');
     
     victim.scorePile.forEach((c, i) => {
         let s = c.sides[c.selectedSide];
-        let el = document.createElement('div');
-        el.className = 'card'; el.style.height = '100px'; 
-        el.innerHTML = `<div class="card-side active type-${getTypeClass(s.type)}" style="height:100%"><span class="side-title">${s.name}</span><br><span>${s.value} VP</span></div>`;
+        let el = document.createElement('div'); el.className = 'card';
+        el.innerHTML = `<div class="card-side active type-${getTypeClass(s)}" style="height:100%"><span class="side-title">${s.name}</span><br>${s.value} VP</div>`;
         el.onclick = () => {
-            victim.scorePile.splice(i, 1); player.scorePile.push(c);
-            log(`> You stole ${s.name} from ${victim.name}!`, false, 'success');
-            document.querySelectorAll('.back-btn').forEach(b => b.remove()); 
-            document.getElementById('select-modal').classList.add('hidden'); finishTurnSequence();
-        };
-        grid.appendChild(el);
-    });
-}
-
-function showFlipCards(player, target) {
-    let grid = document.getElementById('select-grid');
-    let title = document.getElementById('select-title');
-    let status = document.getElementById('select-status');
-    title.innerText = `FLIP ${target.name}'s CARD`;
-    status.innerText = "Click to FLIP a card to its other side.";
-    grid.innerHTML = "";
-    
-    let backBtn = document.createElement('div');
-    backBtn.className = 'back-btn';
-    backBtn.innerText = "⬅ GO BACK";
-    backBtn.onclick = () => openPlayerSelectUI(player, 'FLIP');
-    document.getElementById('select-modal').querySelector('.modal-content').insertBefore(backBtn, document.getElementById('select-status'));
-    let oldBtns = document.querySelectorAll('.back-btn');
-    oldBtns.forEach(b => { if(b !== backBtn) b.remove(); }); 
-    
-    target.scorePile.forEach((c, i) => {
-        let currentS = c.sides[c.selectedSide];
-        let otherS = c.sides[(c.selectedSide + 1) % 2];
-        
-        let el = document.createElement('div');
-        el.className = 'card';
-        
-        el.innerHTML = `
-            <div class="card-side active type-${getTypeClass(currentS.type)}">
-                <span style="font-size:9px">CURRENT</span>
-                <span class="side-title">${currentS.name}</span>
-                <span style="font-size:10px">${currentS.value} VP</span>
-            </div>
-            <div style="font-size:16px;text-align:center;">⬇</div>
-            <div class="card-side inactive type-${getTypeClass(otherS.type)}">
-                <span style="font-size:9px">FLIP TO</span>
-                <span class="side-title">${otherS.name}</span>
-                <span style="font-size:10px">${otherS.value} VP</span>
-            </div>
-        `;
-        
-        el.onclick = () => {
-            c.selectedSide = (c.selectedSide + 1) % 2;
-            log(`> Flipped ${target.name}'s ${currentS.name} into ${otherS.name}!`, false, 'success');
-            document.querySelectorAll('.back-btn').forEach(b => b.remove()); 
+            victim.scorePile.splice(i,1); player.scorePile.push(c);
+            log(`> Stole ${s.name}!`, false, 'success');
             document.getElementById('select-modal').classList.add('hidden'); 
+            pauseForInteraction = false; 
             finishTurnSequence();
         };
         grid.appendChild(el);
     });
 }
 
-function openScavengeUI(player) {
-    let modal = document.getElementById('select-modal');
-    let grid = document.getElementById('select-grid');
-    document.getElementById('select-title').innerText = "SCAVENGE";
-    document.getElementById('select-status').innerText = "Return a card to hand.";
-    grid.innerHTML = "";
+function showFlipCards(player, target) {
+    let grid = document.getElementById('select-grid'); grid.innerHTML = '';
+    addBackBtn(player, 'FLIP');
     
-    if (discardPile.length === 0) {
-        log("> Trash empty. Scavenge failed."); finishTurnSequence(); return;
-    }
-    modal.classList.remove('hidden');
-    discardPile.forEach((c, i) => {
-        let el = createCardElement(c, false, -1, true);
-        el.style.pointerEvents = 'auto'; el.style.cursor = 'pointer';
-        el.querySelectorAll('.card-side').forEach(s => s.onclick = null);
+    target.scorePile.forEach((c, i) => {
+        let s = c.sides[c.selectedSide], o = c.sides[(c.selectedSide+1)%2];
+        let el = document.createElement('div'); el.className = 'card';
+        el.innerHTML = `<div class="card-side active type-${getTypeClass(s)}"><span>${s.name}</span><br>${s.value}VP</div><div style="text-align:center">⬇</div><div class="card-side inactive type-${getTypeClass(o)}"><span>${o.name}</span><br>${o.value}VP</div>`;
         el.onclick = () => {
-            discardPile.splice(i, 1); player.hand.push(c);
-            log(`> Scavenged a card.`, false, 'success');
-            modal.classList.add('hidden'); finishTurnSequence();
+            c.selectedSide = (c.selectedSide+1)%2;
+            log(`> Flipped ${target.name}'s card!`, false, 'success');
+            document.getElementById('select-modal').classList.add('hidden'); 
+            pauseForInteraction = false;
+            finishTurnSequence();
         };
         grid.appendChild(el);
     });
 }
 
-/* --- BOT LOGIC --- */
-function handleBotSteal(attacker) {
-    let targets = players.filter(pl => pl !== attacker && pl.scorePile.length > 0);
-    if(targets.length) {
-        // Prioritize winning player
-        targets.sort((a,b) => b.getUniqueColors() - a.getUniqueColors());
-        let victim = targets[0];
-        let stolen = victim.scorePile.pop();
-        attacker.scorePile.push(stolen);
-        log(`> Stole ${stolen.sides[stolen.selectedSide].name} from ${victim.name}!`);
-    } else log(`> No targets to steal.`);
+function addBackBtn(player, mode) {
+    let container = document.getElementById('select-modal').querySelector('.modal-content');
+    // REMOVE OLD
+    let old = container.querySelector('.back-btn'); if(old) old.remove();
+    // ADD NEW
+    let b = document.createElement('div'); b.className = 'back-btn'; b.innerText = "⬅ GO BACK";
+    b.onclick = () => openPlayerSelectUI(player, mode);
+    container.insertBefore(b, document.getElementById('select-grid'));
 }
 
-function handleBotFlip(attacker) {
-    let potentialVictims = players.filter(p => p !== attacker && p.getUniqueColors() >= 4 && p.scorePile.length > 0);
-    
-    if (potentialVictims.length > 0) {
-        // DEFENSIVE FLIP
-        let victim = potentialVictims[0];
-        let card = victim.scorePile.find(c => c.sides[c.selectedSide].type === 'Color' || c.sides[c.selectedSide].type === 'Wild');
-        if (card) {
-            let oldName = card.sides[card.selectedSide].name;
-            card.selectedSide = (card.selectedSide + 1) % 2;
-            log(`> Bot sabotaged ${victim.name}! Flipped ${oldName} to ${card.sides[card.selectedSide].name}.`);
-            return;
+/* BOT LOGIC */
+function processBots() {
+    players.filter(p => p.isBot).forEach(p => {
+        if (p.hand.length > 0) {
+            // Bot picks a random card in hand and a random side
+            let cIdx = Math.floor(Math.random() * p.hand.length);
+            let sIdx = Math.floor(Math.random() * 2);
+            p.selection = { card: p.hand[cIdx], sideIndex: sIdx };
+        } else {
+            p.passed = true;
         }
-    }
-    
-    // OFFENSIVE FLIP (Self-Fix)
-    if (attacker.scorePile.length > 0) {
-        let badCard = attacker.scorePile.find(c => {
-            let current = c.sides[c.selectedSide];
-            let other = c.sides[(c.selectedSide + 1) % 2];
-            // If current is dup color and other is needed color
-            if (current.type === 'Color' && hasColor(attacker, current.name) && other.type === 'Color' && !hasColor(attacker, other.name)) return true;
-            return false;
-        });
-        
-        if (badCard) {
-            badCard.selectedSide = (badCard.selectedSide + 1) % 2;
-            log(`> Bot optimized self: Flipped to ${badCard.sides[badCard.selectedSide].name}.`);
-            return;
-        }
-    }
+    });
+}
 
-    // RANDOM CHAOS
-    let allTargets = players.filter(p => p.scorePile.length > 0);
-    if (allTargets.length > 0) {
-        let t = allTargets[Math.floor(Math.random()*allTargets.length)];
-        let c = t.scorePile[Math.floor(Math.random()*t.scorePile.length)];
-        c.selectedSide = (c.selectedSide + 1) % 2;
-        log(`> Bot flipped ${t.name}'s card randomly.`);
-    } else {
-        log(`> Bot used Flip but no valid targets found.`);
+function renderStats() {
+    let container = document.getElementById('stats-container');
+    if (Object.keys(cardStats).length === 0) {
+        container.innerHTML = "<p>No data yet. Play some cards!</p>";
+        return;
     }
+    let html = "<table style='width:100%; text-align:left; border-collapse:collapse; margin-top:10px;'>";
+    html += "<tr style='border-bottom:1px solid #555'><th>Card</th><th>Played</th><th>Success</th><th>Fail</th></tr>";
+    for (let [key, stat] of Object.entries(cardStats)) {
+        html += `<tr><td>${key}</td><td>${stat.played}</td><td style='color:var(--success)'>${stat.success}</td><td style='color:var(--danger)'>${stat.fail}</td></tr>`;
+    }
+    html += "</table>";
+    container.innerHTML = html;
+}
+
+function handleBotSteal(att) {
+    try {
+        let t = players.filter(p => p!==att && p.scorePile.length>0);
+        if(t.length) { let v = t.sort((a,b)=>b.getRoundScore()-a.getRoundScore())[0]; att.scorePile.push(v.scorePile.pop()); log(`> Bot stole from ${v.name}`); }
+    } catch(e) { console.log("Bot Steal Error", e); }
+}
+
+function handleBotFlip(att) {
+    try {
+        let t = players.filter(p => p.scorePile.length>0);
+        if(t.length) { let v = t[0]; let c = v.scorePile[0]; c.selectedSide=(c.selectedSide+1)%2; log(`> Bot flipped ${v.name}'s card`); }
+    } catch(e) { console.log("Bot Flip Error", e); }
 }
 
 function endRound(finisher) {
-    let sorted = [...players].sort((a,b) => b.getRoundScore() - a.getRoundScore());
+    let sorted = [...players].sort((a,b)=>b.getRoundScore()-a.getRoundScore());
     let winner = sorted[0];
 
-    // TOKEN DISTRIBUTION
     if (finisher) finisher.tokens += matchPot.finisher;
     winner.tokens += matchPot.points;
 
-    players.forEach(p => {
-        let s = p.getRoundScore(); p.totalScore += s;
-    });
+    players.forEach(p => { p.totalScore += p.getRoundScore(); });
 
     let msg = `ROUND ${currentRound} COMPLETE!\n\n`;
     if(finisher) msg += `🏆 ROUND ENDER: ${finisher.name} (+${matchPot.finisher} Tokens)\n`;
     msg += `⭐ HIGH SCORE: ${winner.name} (+${matchPot.points} Tokens)\n\nSCORES:\n`;
-    
-    players.forEach(p => {
-        msg += `${p.name}: ${p.getRoundScore()} VP | Tokens: ${p.tokens} | Total VP: ${p.totalScore}\n`;
-    });
+    players.forEach(p => { msg += `${p.name}: ${p.getRoundScore()} VP | Tokens: ${p.tokens} | Total VP: ${p.totalScore}\n`; });
     
     alert(msg);
-
-    if (currentRound < TOTAL_ROUNDS) { currentRound++; startNewRound(); } 
-    else endGame();
+    if (currentRound < TOTAL_ROUNDS) { currentRound++; startNewRound(); } else endGame();
 }
 
 function endGame() {
-    let sorted = [...players].sort((a,b) => b.totalScore - a.totalScore);
+    let sorted = [...players].sort((a,b)=>b.totalScore-a.totalScore);
     let winner = sorted[0];
-    
     let summary = "";
     sorted.forEach(p => summary += `${p.name}: ${p.totalScore} VP | ${p.tokens} Tokens\n`);
-    
     alert(`TOURNAMENT OVER!\n\nWINNER: ${winner.name}\n\n${summary}`);
     location.reload();
 }
 
-/* --- UI HELPERS --- */
-function selectSide(cIdx, sIdx) {
-    let p = players[activePlayerIdx];
-    let card = p.hand[cIdx];
-    if(card.isBurning) return; 
-    p.selection = {card: card, sideIndex: sIdx}; updateUI();
-}
-
-function toggleBurn(cIdx) {
-    let p = players[activePlayerIdx];
-    let card = p.hand[cIdx];
-    if(p.selection && p.selection.card === card) return; 
-    card.isBurning = !card.isBurning;
-    p.bonus = p.hand.filter(c => c.isBurning).length; updateUI();
-}
-
-function toggleDiscard() {
-    let modal = document.getElementById('discard-modal');
-    if(modal.classList.contains('hidden')) {
-        modal.classList.remove('hidden');
-        let grid = document.getElementById('discard-grid'); grid.innerHTML = '';
-        discardPile.forEach(c => {
-            let d = createCardElement(c, true, -1, true); d.style.cursor = 'default';
-            grid.appendChild(d);
-        });
-    } else modal.classList.add('hidden');
-}
-
-function toggleStats() {
-    let modal = document.getElementById('stats-modal');
-    if(modal.classList.contains('hidden')) { modal.classList.remove('hidden'); renderStats(); } 
-    else modal.classList.add('hidden');
-}
+/* UTILS */
+function selectSide(c,s) { if(!players[0].hand[c].isBurning) { players[0].selection={card:players[0].hand[c], sideIndex:s}; updateUI(); } }
+function toggleBurn(c) { players[0].hand[c].isBurning = !players[0].hand[c].isBurning; players[0].bonus=players[0].hand.filter(x=>x.isBurning).length; updateUI(); }
+function toggleDiscard() { document.getElementById('discard-modal').classList.toggle('hidden'); if(!document.getElementById('discard-modal').classList.contains('hidden')) { let g=document.getElementById('discard-grid'); g.innerHTML=''; discardPile.forEach(c=>g.appendChild(createCardElement(c,true,-1,true))); } }
+function toggleStats() { document.getElementById('stats-modal').classList.toggle('hidden'); if(!document.getElementById('stats-modal').classList.contains('hidden')) renderStats(); }
 
 function updateUI() {
-    let p = players[activePlayerIdx];
-    document.getElementById('active-player-name').innerText = `${p.name}'S TURN`;
-    document.getElementById('turn-display').innerText = turnCount;
-    document.getElementById('btn-roll').innerText = (activePlayerIdx < players.length - players.filter(x=>x.isBot).length - 1) ? "NEXT PLAYER" : "EXECUTE ROUND";
-
+    let p = players[0];
+    document.getElementById('btn-roll').innerText = (activePlayerIdx===0) ? "CONFIRM MOVE" : "WAITING...";
+    document.getElementById('btn-roll').disabled = (activePlayerIdx!==0 || !p.selection);
     document.getElementById('player-score').innerText = `${p.getRoundScore()} VP`;
-    document.getElementById('total-score-display').innerText = `(Total: ${p.totalScore})`;
     document.getElementById('player-tokens').innerText = `🪙 ${p.tokens}`;
-    
-    // Pot Display Update
     document.getElementById('pot-points').innerText = `⭐ ${matchPot.points}`;
     document.getElementById('pot-finisher').innerText = `🎨 ${matchPot.finisher}`;
+    document.getElementById('bonus-display').innerText = `+${p.bonus}`;
     
     document.getElementById('colors-status').innerText = `Colors: ${p.getUniqueColors()}/${TRIGGER_COLORS}`;
-    document.getElementById('bonus-display').innerText = `+${p.bonus}`;
     document.getElementById('hand-count').innerText = `Hand: ${p.hand.length}/${MAX_HAND}`;
     document.getElementById('btn-disc').innerText = `DISCARD (${discardPile.length})`;
 
-    let handDiv = document.getElementById('player-hand'); handDiv.innerHTML = '';
-    p.hand.forEach((card, idx) => {
-        let el = createCardElement(card, true, idx);
-        el.oncontextmenu = (e) => { e.preventDefault(); toggleBurn(idx); };
-        handDiv.appendChild(el);
-    });
-
-    let pileDiv = document.getElementById('player-score-pile'); pileDiv.innerHTML = '';
-    p.scorePile.forEach(card => pileDiv.appendChild(createCardElement(card, false)));
-
-    let oppDiv = document.getElementById('opponents'); oppDiv.innerHTML = '';
-    players.forEach((opp, i) => { if(i !== activePlayerIdx) oppDiv.appendChild(createOpponentHUD(opp)); });
-
-    document.getElementById('btn-roll').disabled = !p.selection;
-}
-
-// --- GLOBAL TOOLTIP ---
-document.addEventListener('mouseover', (e) => {
-    let target = e.target.closest('[data-tooltip]');
-    if (target) showTooltip(e, target.getAttribute('data-tooltip'));
-});
-document.addEventListener('mouseout', (e) => { if (e.target.closest('[data-tooltip]')) hideTooltip(); });
-document.addEventListener('mousemove', (e) => { if (document.getElementById('tooltip').style.display === 'block') moveTooltip(e); });
-
-function showTooltip(e, text) {
-    let tt = document.getElementById('tooltip');
-    tt.style.display = 'block'; tt.innerText = text; moveTooltip(e);
-}
-function moveTooltip(e) {
-    let tt = document.getElementById('tooltip');
-    tt.style.left = (e.clientX + 15) + 'px'; tt.style.top = (e.clientY + 15) + 'px';
-}
-function hideTooltip() { document.getElementById('tooltip').style.display = 'none'; }
-
-function createCardElement(card, interactable, index, isDiscard = false) {
-    let el = document.createElement('div');
-    el.className = 'card';
-    if(card.isBurning) el.classList.add('burning');
+    let hd = document.getElementById('player-hand'); hd.innerHTML='';
+    p.hand.forEach((c,i) => { let el=createCardElement(c,true,i); hd.appendChild(el); });
     
-    let desc = "";
-    if (interactable || isDiscard) {
-        let s1 = card.sides[0], s2 = card.sides[1];
-        desc = `[${s1.name}]\nTarget: ${s1.target}\nEffect: ${getValStr(s1)}\n\n[${s2.name}]\nTarget: ${s2.target}\nEffect: ${getValStr(s2)}`;
-    } else {
-        let s = card.sides[card.selectedSide];
-        desc = `[${s.name}]\nTarget: ${s.target}\nEffect: ${getValStr(s)}`;
-    }
-    el.setAttribute('data-tooltip', desc);
+    let pd = document.getElementById('player-score-pile'); pd.innerHTML='';
+    p.scorePile.forEach(c => pd.appendChild(createCardElement(c,false)));
     
-    let s0 = card.sides[0], s1 = card.sides[1];
-    if (interactable || isDiscard) {
+    let od = document.getElementById('opponents'); od.innerHTML='';
+    players.forEach((opp,i) => { if(i!==0) od.appendChild(createOpponentHUD(opp)); });
+}
+
+function createCardElement(card, interact, idx, isDisc=false) {
+    let el = document.createElement('div'); el.className = 'card'; if(card.isBurning) el.classList.add('burning');
+    let s0=card.sides[0], s1=card.sides[1];
+    
+    if(interact || isDisc) {
+        let sel = (players[0] && players[0].selection && players[0].selection.card===card);
         el.innerHTML = `
-            <div class="card-side type-${getTypeClass(s0.type)}" ${!isDiscard ? `onclick="selectSide(${index}, 0)"` : ''}>
-                <span class="side-title">${s0.name}</span>
-                <span class="side-stats">T${s0.target} | ${getValStr(s0)}</span>
-            </div>
-            <div style="text-align:center; color:#444; font-size:9px;">- OR -</div>
-            <div class="card-side type-${getTypeClass(s1.type)}" ${!isDiscard ? `onclick="selectSide(${index}, 1)"` : ''}>
-                <span class="side-title">${s1.name}</span>
-                <span class="side-stats">T${s1.target} | ${getValStr(s1)}</span>
-            </div>
+            <div class="card-side type-${getTypeClass(s0)} ${sel && players[0].selection.sideIndex===0?'active':''}" onclick="${isDisc ? '' : `selectSide(${idx},0)`}">${s0.name}<br>T${s0.target}</div>
+            <div style="font-size:10px;text-align:center">-</div>
+            <div class="card-side type-${getTypeClass(s1)} ${sel && players[0].selection.sideIndex===1?'active':''}" onclick="${isDisc ? '' : `selectSide(${idx},1)`}">${s1.name}<br>T${s1.target}</div>
         `;
-        if(!isDiscard && players[activePlayerIdx].selection && players[activePlayerIdx].selection.card === card) {
-            el.classList.add('selected');
-            el.querySelectorAll('.card-side')[players[activePlayerIdx].selection.sideIndex].classList.add('active');
+        el.setAttribute('data-tooltip', `${s0.name} (T${s0.target}) / ${s1.name} (T${s1.target})`);
+        
+        // Prevent right-clicking in the discard pile
+        if (!isDisc) {
+            el.oncontextmenu=(e)=>{e.preventDefault(); toggleBurn(idx);};
         }
     } else {
-        let active = card.sides[card.selectedSide];
-        let typeCls = getTypeClass(active.type);
-        if(active.type === 'Color') typeCls = active.name.toLowerCase();
-        el.innerHTML = `<div class="card-side type-${typeCls} active" style="height:100%"><span class="side-title">${active.name}</span><br><span style="font-size:16px;">${getValStr(active)}</span></div>`;
-        el.style.height = '80px'; 
+        let s = card.sides[card.selectedSide];
+        el.innerHTML = `<div class="card-side active type-${getTypeClass(s)}" style="height:100%">${s.name}<br>${s.value}VP</div>`;
     }
     return el;
 }
 
 function createOpponentHUD(p) {
-    let div = document.createElement('div');
-    div.className = 'player-hud'; div.id = `hud-p${players.indexOf(p)}`;
-    let status = p.passed ? " <span style='color:orange'>(DONE)</span>" : "";
-    let html = `
-        <div class="hud-header"><span>${p.name}${status}</span><span style="color:var(--highlight)">${p.getRoundScore()} VP</span></div>
-        <div class="hud-stats">Total: ${p.totalScore} | Tokens: ${p.tokens} 🪙 | Cols: ${p.getUniqueColors()}</div>
-        <div style="margin-top:5px; display:flex; flex-wrap:wrap;">
-    `;
-    p.scorePile.forEach(c => {
-        let s = c.sides[c.selectedSide];
-        let col = getTypeClass(s.type) === 'color' ? s.name.toLowerCase() : '#444';
-        if(s.type==='Color') col = s.name.toLowerCase();
-        html += `<div class="mini-card-container"><span class="mini-card" style="border-color:${col}; color:${col === '#444' ? 'white' : col};">${s.name[0]}</span><span class="mini-val">${s.value}</span></div>`;
+    let div = document.createElement('div'); div.className='player-hud'; div.id=`hud-p${players.indexOf(p)}`;
+    let h = `<div class="hud-header"><span>${p.name}</span><span>${p.getRoundScore()} VP</span></div>
+             <div class="hud-stats">Tokens: ${p.tokens} | Hand: ${p.hand.length}</div>
+             <div style="margin-top:5px;display:flex;flex-wrap:wrap">`;
+    p.scorePile.forEach(c=>{ 
+        let s=c.sides[c.selectedSide]; 
+        let bColor = s.type === 'Color' ? s.name.toLowerCase() : '#444';
+        h+=`<div class="mini-card" style="border-color:${bColor}">${s.name[0]}</div>`
     });
-    html += `</div>`;
-    div.innerHTML = html;
-    div.setAttribute('data-tooltip', `${p.name}\nRound Score: ${p.getRoundScore()}\nTotal Tournament Score: ${p.totalScore}`);
-    return div;
+    div.innerHTML = h + `</div>`; return div;
 }
 
-function getTypeClass(t) {
-    if(t === 'Color') return 'color'; 
-    if(t === 'Wild') return 'wild';
-    if(t === 'Action') return 'action';
-    return 'gray';
+function getTypeClass(s) { 
+    if (s.type === 'Color') return s.name.toLowerCase();
+    return (s.type==='Wild'?'wild':(s.type==='Action'?'action':'gray')); 
 }
-function getValStr(s) {
-    if(s.effect) return s.effect;
-    return s.value + " VP";
-}
-function log(msg, isHeader, type) {
-    let div = document.getElementById('game-log');
-    let entry = document.createElement('div');
-    entry.className = isHeader ? 'log-turn' : 'log-entry';
-    if(type) entry.classList.add(type);
-    entry.innerText = msg;
-    div.prepend(entry);
+
+function getValStr(s) { return s.effect ? s.effect : s.value + " VP"; }
+function hasColor(p, name) { return p.scorePile.some(c => c.sides[c.selectedSide].name === name); }
+function log(m,head,type) {
+    let d=document.getElementById('game-log'), e=document.createElement('div');
+    e.className=head?'log-turn':'log-entry'; if(type) e.classList.add(`log-${type}`);
+    e.innerText=m; d.prepend(e);
 }
 </script>
 </body>
