@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CYBER STACK: v4.2 BALANCED</title>
+    <title>CYBER STACK: v4.3 BALANCED</title>
     <style>
         :root {
             --bg-color: #0d1117;
@@ -162,7 +162,7 @@
 
     <div id="start-screen">
         <h1 style="font-size: 40px; color: var(--highlight);">CYBER STACK</h1>
-        <div style="color: var(--warning); font-size: 14px; margin-bottom: 20px;">// v4.2 BALANCED //</div>
+        <div style="color: var(--warning); font-size: 14px; margin-bottom: 20px;">// v4.3 BALANCED //</div>
         <div class="selection-group">
             <div>HUMAN PLAYERS</div>
             <button class="sel-btn active" onclick="setSetup('p', 1)">1</button><button class="sel-btn" onclick="setSetup('p', 2)">2</button><button class="sel-btn" onclick="setSetup('p', 3)">3</button><button class="sel-btn" onclick="setSetup('p', 4)">4</button>
@@ -383,7 +383,6 @@ function generateDeck() {
     }
     COLORS.forEach(c => d.push(new Card({name:'Wild', type:'Wild', target:6, value:4}, {name:c, type:'Color', target:2, value:0})));
     
-    // UPDATE: Draw Actions paired together, Attack Actions paired together
     for(let i=0; i<5; i++) d.push(new Card({name:'Draw +2', type:'Action', effect:'Draw +2', target:4, value:0}, {name:'Draw +1', type:'Action', effect:'Draw +1', target:2, value:0}));
     for(let i=0; i<4; i++) d.push(new Card({name:'Steal', type:'Action', effect:'Steal', target:4, value:0}, {name:'Flip', type:'Action', effect:'Flip', target:4, value:0}));
     
@@ -615,16 +614,18 @@ function showStealCards(player, victim) {
     });
 }
 
+// FIX: Hardened the flip state check to guarantee it sticks
 function showFlipCards(player, target) {
     let grid = document.getElementById('select-grid'); grid.innerHTML = '';
     addBackBtn(player, 'FLIP');
     
     target.scorePile.forEach((c, i) => {
-        let s = c.sides[c.selectedSide], o = c.sides[(c.selectedSide+1)%2];
+        let s = c.sides[c.selectedSide], o = c.sides[c.selectedSide === 0 ? 1 : 0];
         let el = document.createElement('div'); el.className = 'card';
         el.innerHTML = `<div class="card-side active type-${getTypeClass(s)}"><span>${s.name}</span><br>${s.value}VP</div><div style="text-align:center">⬇</div><div class="card-side inactive type-${getTypeClass(o)}"><span>${o.name}</span><br>${o.value}VP</div>`;
         el.onclick = () => {
-            c.selectedSide = (c.selectedSide+1)%2;
+            // Explicitly set the side so it can never be confused
+            c.selectedSide = c.selectedSide === 0 ? 1 : 0;
             log(`> Flipped ${target.name}'s card!`, false, 'success');
             document.getElementById('select-modal').classList.add('hidden'); 
             pauseForInteraction = false;
@@ -636,9 +637,7 @@ function showFlipCards(player, target) {
 
 function addBackBtn(player, mode) {
     let container = document.getElementById('select-modal').querySelector('.modal-content');
-    // REMOVE OLD
     let old = container.querySelector('.back-btn'); if(old) old.remove();
-    // ADD NEW
     let b = document.createElement('div'); b.className = 'back-btn'; b.innerText = "⬅ GO BACK";
     b.onclick = () => openPlayerSelectUI(player, mode);
     container.insertBefore(b, document.getElementById('select-grid'));
@@ -648,7 +647,6 @@ function addBackBtn(player, mode) {
 function processBots() {
     players.filter(p => p.isBot).forEach(p => {
         if (p.hand.length > 0) {
-            // Bot picks a random card in hand and a random side
             let cIdx = Math.floor(Math.random() * p.hand.length);
             let sIdx = Math.floor(Math.random() * 2);
             p.selection = { card: p.hand[cIdx], sideIndex: sIdx };
@@ -673,17 +671,36 @@ function renderStats() {
     container.innerHTML = html;
 }
 
+// FIX: Smarter Bot Stealing (takes the best card instead of the newest)
 function handleBotSteal(att) {
     try {
-        let t = players.filter(p => p!==att && p.scorePile.length>0);
-        if(t.length) { let v = t.sort((a,b)=>b.getRoundScore()-a.getRoundScore())[0]; att.scorePile.push(v.scorePile.pop()); log(`> Bot stole from ${v.name}`); }
+        let t = players.filter(p => p !== att && p.scorePile.length > 0);
+        if(t.length) { 
+            let v = t.sort((a,b) => b.getRoundScore() - a.getRoundScore())[0]; 
+            // Bot steals their most valuable card
+            v.scorePile.sort((a,b) => b.sides[b.selectedSide].value - a.sides[a.selectedSide].value);
+            let c = v.scorePile.shift(); 
+            att.scorePile.push(c); 
+            log(`> ${att.name} stole from ${v.name}`); 
+        }
     } catch(e) { console.log("Bot Steal Error", e); }
 }
 
+// FIX: Prevent Bot from continuously flipping the exact same card in a loop
 function handleBotFlip(att) {
     try {
-        let t = players.filter(p => p.scorePile.length>0);
-        if(t.length) { let v = t[0]; let c = v.scorePile[0]; c.selectedSide=(c.selectedSide+1)%2; log(`> Bot flipped ${v.name}'s card`); }
+        // Find opponents that actually have scored cards (so bot doesn't attack itself)
+        let t = players.filter(p => p !== att && p.scorePile.length > 0);
+        if(t.length) { 
+            // Attack the player currently in the lead
+            let v = t.sort((a,b) => b.getRoundScore() - a.getRoundScore())[0]; 
+            // Target their best card
+            v.scorePile.sort((a,b) => b.sides[b.selectedSide].value - a.sides[a.selectedSide].value);
+            let c = v.scorePile[0]; 
+            // Explicitly lock in the flip state
+            c.selectedSide = c.selectedSide === 0 ? 1 : 0; 
+            log(`> ${att.name} flipped ${v.name}'s card!`); 
+        }
     } catch(e) { console.log("Bot Flip Error", e); }
 }
 
