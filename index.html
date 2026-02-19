@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CYBER STACK: v4.5 BALANCED</title>
+    <title>CYBER STACK: v4.8 BALANCED</title>
     <style>
         :root {
             --bg-color: #0d1117;
@@ -147,6 +147,13 @@
         .fx-fail { color: #ff4444; border: 3px solid #ff4444; padding: 10px 20px; border-radius: 8px; transform: rotate(5deg); }
         .element-shake { animation: shake 0.5s; }
         
+        .floating-card {
+            pointer-events: none;
+            z-index: 9999;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            margin: 0;
+        }
+
         #tooltip { position: fixed; display: none; background: rgba(0,0,0,0.95); border: 1px solid #58a6ff; color: #fff; padding: 12px; z-index: 99999; border-radius: 6px; pointer-events: none; white-space: pre-wrap; line-height: 1.4; box-shadow: 0 4px 15px rgba(0,0,0,0.8); }
         
         .selection-group { margin: 10px 0; text-align: center; }
@@ -177,7 +184,7 @@
 
     <div id="start-screen">
         <h1 style="font-size: 40px; color: var(--highlight);">CYBER STACK</h1>
-        <div style="color: var(--warning); font-size: 14px; margin-bottom: 20px;">// v4.5 BALANCED //</div>
+        <div style="color: var(--warning); font-size: 14px; margin-bottom: 20px;">// v4.8 BALANCED //</div>
         
         <div class="selection-group">
             <div>HUMAN PLAYERS</div>
@@ -211,8 +218,8 @@
     <div id="select-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h2 id="select-title">TARGET</h2>
-            <div id="select-grid" class="modal-grid"></div>
             <div id="select-status"></div>
+            <div id="select-grid" class="modal-grid"></div>
         </div>
     </div>
     
@@ -278,7 +285,7 @@ const TOTAL_ROUNDS = 3;
 let deck = [], discardPile = [], players = [];
 let turnCount = 1, currentRound = 1, activePlayerIdx = 0;
 let setupP = 1, setupB = 1; 
-let tokenProgression = [2, 4, 6]; // Default state, gets overwritten on start
+let tokenProgression = [2, 4, 6]; 
 let pauseForInteraction = false;
 let cardStats = {};
 let matchPot = { points: 2, finisher: 2 };
@@ -332,20 +339,17 @@ function setSetup(t, v) {
     if(t==='p') setupP=v; 
     if(t==='b') setupB=v; 
     
-    // Only dealing with players (group 0) and bots (group 1)
     let g = t==='p' ? 0 : 1; 
     let btns = document.querySelectorAll('.selection-group')[g].querySelectorAll('.sel-btn');
     
     btns.forEach(b => b.classList.remove('active')); 
     
-    // Match the button text to the selected value
     btns.forEach(b => { 
         if(parseInt(b.innerText) === v) b.classList.add('active'); 
     });
 }
 
 function startGame() {
-    // Read the custom token inputs right before starting
     tokenProgression[0] = parseInt(document.getElementById('token-r1').value) || 2;
     tokenProgression[1] = parseInt(document.getElementById('token-r2').value) || 4;
     tokenProgression[2] = parseInt(document.getElementById('token-r3').value) || 6;
@@ -372,7 +376,6 @@ function startNewRound() {
 function openCoinModal() {
     let modal = document.getElementById('coin-modal'), area = document.getElementById('coin-area');
     
-    // Grab the token count directly from our progression array
     let tokenCount = tokenProgression[currentRound - 1] || 2; 
     
     document.getElementById('token-subtitle').innerHTML = `Flipping ${tokenCount} Tokens...<br>⭐ = Most Points | 🎨 = First to 5 Colors`;
@@ -381,7 +384,6 @@ function openCoinModal() {
     document.getElementById('btn-drop').classList.remove('hidden');
     document.getElementById('btn-start-round').classList.add('hidden');
     
-    // Spawn the dynamic number of tokens
     for(let i=0; i<tokenCount; i++) {
         let c = document.createElement('div'); c.className = 'coin';
         c.innerHTML = `<div class="coin-face face-heads">⭐</div><div class="coin-face face-tails">🎨</div>`;
@@ -423,8 +425,9 @@ function generateDeck() {
     }
     COLORS.forEach(c => d.push(new Card({name:'Wild', type:'Wild', target:6, value:4}, {name:c, type:'Color', target:2, value:0})));
     
-    for(let i=0; i<5; i++) d.push(new Card({name:'Draw +2', type:'Action', effect:'Draw +2', target:4, value:0}, {name:'Draw +1', type:'Action', effect:'Draw +1', target:2, value:0}));
-    for(let i=0; i<4; i++) d.push(new Card({name:'Steal', type:'Action', effect:'Steal', target:4, value:0}, {name:'Flip', type:'Action', effect:'Flip', target:4, value:0}));
+    // UPDATED ACTION PAIRINGS
+    for(let i=0; i<4; i++) d.push(new Card({name:'Draw +2', type:'Action', effect:'Draw +2', target:4, value:0}, {name:'Flip', type:'Action', effect:'Flip', target:4, value:0}));
+    for(let i=0; i<4; i++) d.push(new Card({name:'Steal', type:'Action', effect:'Steal', target:4, value:0}, {name:'Draw +1', type:'Action', effect:'Draw +1', target:2, value:0}));
     
     return shuffle(d);
 }
@@ -455,6 +458,10 @@ function commitTurn() {
     });
     p.hand = fh;
     if(!p.hand.includes(p.selection.card)) { p.passed = true; p.selection = null; }
+    
+    // Clear the player's UI immediately to make room for the animation
+    document.getElementById('player-hand').innerHTML = '';
+    
     advanceQueue();
 }
 
@@ -491,23 +498,72 @@ function executeRound(roll) {
     document.getElementById('dice-display').innerText = roll;
     log(`--- TURN ${turnCount} | ROLL: ${roll} ---`, true);
     
-    // RESET PAUSE FLAG
     pauseForInteraction = false;
     
     try {
-        // Resolve Bots First (Instant)
         players.filter(p=>p.isBot).forEach(p=>resolvePlayer(p, roll));
-        
-        // Resolve Humans
         players.filter(p=>!p.isBot).forEach(p=>resolvePlayer(p, roll));
     } catch(e) { console.error("Error in Execution:", e); }
 
-    // IF NO PLAYER IS CURRENTLY INTERACTING, FINISH
     if(!pauseForInteraction) {
-        setTimeout(finishTurnSequence, 1500);
+        // INCREASED TIMEOUT: Gives cards time to animate before UI resets
+        setTimeout(finishTurnSequence, 3000); 
     } else {
         document.getElementById('phase-display').innerText = "WAITING FOR PLAYER...";
     }
+}
+
+/* --- NEW ANIMATION LOGIC --- */
+function spawnFloatingCard(p, card, sIdx, isSuccess) {
+    let pId = p === players[0] ? 'player-main-area' : `hud-p${players.indexOf(p)}`;
+    let pEl = document.getElementById(pId);
+    if (!pEl) return;
+
+    let rect = pEl.getBoundingClientRect();
+    
+    let floatingCard = document.createElement('div');
+    floatingCard.className = 'card floating-card';
+    floatingCard.style.position = 'fixed';
+    
+    // Start at the player's UI
+    floatingCard.style.left = rect.left + (rect.width / 2) - 50 + 'px';
+    floatingCard.style.top = rect.top + 'px';
+    floatingCard.style.transition = 'all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1)';
+    
+    let s = card.sides[sIdx];
+    floatingCard.innerHTML = `<div class="card-side active type-${getTypeClass(s)}" style="height:100%"><b>${s.name}</b><br>T${s.target} • ${s.value}VP</div>`;
+    
+    document.body.appendChild(floatingCard);
+    
+    // Stage 1: Fly to center and fan out slightly to read
+    setTimeout(() => {
+        let xOffset = (Math.random() * 80) - 40;
+        let yOffset = (Math.random() * 40) - 20;
+        floatingCard.style.left = (window.innerWidth / 2) - 50 + xOffset + 'px';
+        floatingCard.style.top = (window.innerHeight / 2) - 100 + yOffset + 'px';
+        floatingCard.style.transform = 'scale(1.3) rotate(' + ((Math.random()*10)-5) + 'deg)';
+        floatingCard.style.boxShadow = isSuccess ? '0 0 25px var(--success)' : '0 0 25px var(--danger)';
+        floatingCard.style.border = isSuccess ? '2px solid var(--success)' : '2px solid var(--danger)';
+    }, 50);
+
+    // Stage 2: Fly to destination (Discard or Score Pile)
+    setTimeout(() => {
+        let destId = isSuccess ? (p === players[0] ? 'player-score-pile' : pId) : 'btn-disc';
+        let destEl = document.getElementById(destId);
+        if(destEl) {
+            let dRect = destEl.getBoundingClientRect();
+            floatingCard.style.transition = 'all 0.5s ease-in';
+            floatingCard.style.left = dRect.left + (dRect.width/2) - 50 + 'px';
+            floatingCard.style.top = dRect.top + 'px';
+            floatingCard.style.transform = 'scale(0.3)';
+            floatingCard.style.opacity = '0';
+        }
+    }, 1800);
+
+    // Stage 3: Cleanup Element
+    setTimeout(() => {
+        floatingCard.remove();
+    }, 2400);
 }
 
 function finishTurnSequence() {
@@ -535,18 +591,19 @@ function resolvePlayer(p, roll) {
     let card = p.selection.card, sIdx = p.selection.sideIndex, side = card.sides[sIdx];
     let total = roll + p.bonus;
     
-    // Remove card from hand
     let hIdx = p.hand.indexOf(card); 
     if(hIdx>-1) p.hand.splice(hIdx,1);
 
-    // Stats
     let key = side.name; if(!cardStats[key]) cardStats[key]={played:0,success:0,fail:0};
     cardStats[key].played++;
 
     if(total >= side.target) {
         log(`${p.name} Success: ${side.name}`, false, 'success');
         cardStats[key].success++; 
+        
+        spawnFloatingCard(p, card, sIdx, true); // TRIGGER SUCCESS ANIMATION
         triggerVisualFX('success', p);
+        
         card.selectedSide = sIdx;
         
         if(side.effect === 'Draw +2') { 
@@ -582,7 +639,10 @@ function resolvePlayer(p, roll) {
     } else {
         log(`${p.name} Fails ${side.name}`, false, 'fail');
         cardStats[key].fail++; 
+        
+        spawnFloatingCard(p, card, sIdx, false); // TRIGGER FAILURE ANIMATION
         triggerVisualFX('fail', p); 
+        
         discardPile.push(card);
     }
 }
@@ -611,22 +671,40 @@ function triggerVisualFX(type, p) {
 function openPlayerSelectUI(player, mode) {
     let modal = document.getElementById('select-modal'), grid = document.getElementById('select-grid');
     document.getElementById('select-title').innerText = mode==='STEAL'?"STEAL FROM...":"FLIP WHO?";
-    document.getElementById('select-status').innerText = ""; grid.innerHTML = "";
+    
+    let status = document.getElementById('select-status');
+    let myCards = "";
+    player.scorePile.forEach(c => {
+        let s = c.sides[c.selectedSide];
+        let bColor = s.type === 'Color' ? s.name.toLowerCase() : '#444';
+        myCards += `<div class="mini-card" style="width:auto; padding:4px 8px; border-color:${bColor}; color:white;">${s.name} (${s.value}VP)</div>`;
+    });
+    
+    status.innerHTML = `<div style="margin-bottom: 20px; background: #0d1117; padding: 15px; border-radius: 6px; border: 1px solid var(--highlight);">
+                            <div style="font-size: 14px; color: var(--highlight); margin-bottom: 10px; font-weight:bold;">YOUR CURRENT CARDS (Colors: ${player.getUniqueColors()}/${TRIGGER_COLORS})</div>
+                            <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">${myCards || '<span style="color:#555">No cards scored yet.</span>'}</div>
+                        </div>`;
+    
+    grid.innerHTML = "";
     
     let targets = players.filter(v => v.scorePile.length > 0);
     if(mode==='STEAL') targets = targets.filter(v => v !== player);
     
-    // IF NO TARGETS, RESUME
     if(targets.length === 0) { 
         log(`> No valid targets.`); 
         modal.classList.add('hidden'); 
         pauseForInteraction=false; 
-        finishTurnSequence(); 
+        
+        // Ensure UI resets normally if interaction canceled
+        setTimeout(finishTurnSequence, 3000); 
         return; 
     }
     
     modal.classList.remove('hidden');
     
+    let container = document.getElementById('select-modal').querySelector('.modal-content');
+    let old = container.querySelector('.back-btn'); if(old) old.remove();
+
     targets.forEach(v => {
         let b = document.createElement('div'); b.className = 'target-btn';
         b.innerHTML = `<b>${v.name}</b><br>${v.scorePile.length} Cards`;
@@ -714,7 +792,6 @@ function handleBotSteal(att) {
         let t = players.filter(p => p !== att && p.scorePile.length > 0);
         if(t.length) { 
             let v = t.sort((a,b) => b.getRoundScore() - a.getRoundScore())[0]; 
-            // Bot steals their most valuable card
             v.scorePile.sort((a,b) => b.sides[b.selectedSide].value - a.sides[a.selectedSide].value);
             let c = v.scorePile.shift(); 
             att.scorePile.push(c); 
@@ -806,7 +883,6 @@ function createCardElement(card, interact, idx, isDisc=false) {
         `;
         el.setAttribute('data-tooltip', `${s0.name} (T${s0.target} / ${s0.value}VP) \n ${s1.name} (T${s1.target} / ${s1.value}VP)`);
         
-        // Prevent right-clicking in the discard pile
         if (!isDisc) {
             el.oncontextmenu=(e)=>{e.preventDefault(); toggleBurn(idx);};
         }
