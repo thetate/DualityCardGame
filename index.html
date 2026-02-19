@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CYBER STACK: v4.3 BALANCED</title>
+    <title>CYBER STACK: v4.5 BALANCED</title>
     <style>
         :root {
             --bg-color: #0d1117;
@@ -101,6 +101,21 @@
         .back-btn { background: #da3633; color: white; padding: 10px; margin: 10px auto; cursor: pointer; border-radius: 5px; font-weight: bold; display:block; width: 120px; }
         .back-btn:hover { background: #ff4444; }
 
+        /* INPUTS */
+        .token-input {
+            width: 45px;
+            background: #21262d;
+            border: 1px solid #30363d;
+            color: var(--highlight);
+            padding: 8px;
+            font-family: inherit;
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+            border-radius: 4px;
+        }
+        .token-input:focus { outline: none; border-color: var(--highlight); box-shadow: 0 0 5px var(--highlight); }
+
         /* HUD & LOG */
         #game-log { height: 150px; overflow-y: auto; background: #000; border: 1px solid var(--border); padding: 10px; font-size: 12px; font-family: monospace; color: #0f0; }
         .log-turn { color: var(--highlight); border-bottom: 1px solid #333; margin-top: 5px; }
@@ -162,16 +177,28 @@
 
     <div id="start-screen">
         <h1 style="font-size: 40px; color: var(--highlight);">CYBER STACK</h1>
-        <div style="color: var(--warning); font-size: 14px; margin-bottom: 20px;">// v4.3 BALANCED //</div>
+        <div style="color: var(--warning); font-size: 14px; margin-bottom: 20px;">// v4.5 BALANCED //</div>
+        
         <div class="selection-group">
             <div>HUMAN PLAYERS</div>
             <button class="sel-btn active" onclick="setSetup('p', 1)">1</button><button class="sel-btn" onclick="setSetup('p', 2)">2</button><button class="sel-btn" onclick="setSetup('p', 3)">3</button><button class="sel-btn" onclick="setSetup('p', 4)">4</button>
         </div>
+        
         <div class="selection-group">
             <div>CPU OPPONENTS</div>
             <button class="sel-btn" onclick="setSetup('b', 0)">0</button><button class="sel-btn active" onclick="setSetup('b', 1)">1</button><button class="sel-btn" onclick="setSetup('b', 2)">2</button><button class="sel-btn" onclick="setSetup('b', 3)">3</button>
         </div>
-        <button class="btn-play" style="margin-top:20px; width: 200px;" onclick="startGame()">INITIALIZE</button>
+        
+        <div class="selection-group" style="margin-top: 15px;">
+            <div style="margin-bottom: 10px;">CUSTOM TOKENS (Per Match)</div>
+            <div style="display: flex; gap: 15px; justify-content: center; align-items: center;">
+                <div>R1: <input type="number" id="token-r1" class="token-input" value="2" min="1" max="50"></div>
+                <div>R2: <input type="number" id="token-r2" class="token-input" value="4" min="1" max="50"></div>
+                <div>R3: <input type="number" id="token-r3" class="token-input" value="6" min="1" max="50"></div>
+            </div>
+        </div>
+        
+        <button class="btn-play" style="margin-top:25px; width: 200px;" onclick="startGame()">INITIALIZE</button>
     </div>
 
     <div id="discard-modal" class="modal-overlay hidden">
@@ -250,7 +277,8 @@ const TOTAL_ROUNDS = 3;
 /* --- STATE VARIABLES --- */
 let deck = [], discardPile = [], players = [];
 let turnCount = 1, currentRound = 1, activePlayerIdx = 0;
-let setupP = 1, setupB = 1;
+let setupP = 1, setupB = 1; 
+let tokenProgression = [2, 4, 6]; // Default state, gets overwritten on start
 let pauseForInteraction = false;
 let cardStats = {};
 let matchPot = { points: 2, finisher: 2 };
@@ -303,19 +331,32 @@ class Player {
 function setSetup(t, v) {
     if(t==='p') setupP=v; 
     if(t==='b') setupB=v; 
-    let g = t==='p'?0:1; 
+    
+    // Only dealing with players (group 0) and bots (group 1)
+    let g = t==='p' ? 0 : 1; 
     let btns = document.querySelectorAll('.selection-group')[g].querySelectorAll('.sel-btn');
+    
     btns.forEach(b => b.classList.remove('active')); 
+    
     // Match the button text to the selected value
-    btns.forEach(b => { if(parseInt(b.innerText) === v) b.classList.add('active'); });
+    btns.forEach(b => { 
+        if(parseInt(b.innerText) === v) b.classList.add('active'); 
+    });
 }
 
 function startGame() {
+    // Read the custom token inputs right before starting
+    tokenProgression[0] = parseInt(document.getElementById('token-r1').value) || 2;
+    tokenProgression[1] = parseInt(document.getElementById('token-r2').value) || 4;
+    tokenProgression[2] = parseInt(document.getElementById('token-r3').value) || 6;
+
     document.getElementById('start-screen').classList.add('hidden');
     document.getElementById('game-root').classList.remove('hidden');
+    
     players = [];
     for(let i=1; i<=setupP; i++) players.push(new Player(`PLAYER ${i}`, false));
     for(let i=1; i<=setupB; i++) players.push(new Player(`CPU ${i}`, true));
+    
     currentRound = 1; cardStats = {}; 
     startNewRound();
 }
@@ -331,10 +372,9 @@ function startNewRound() {
 function openCoinModal() {
     let modal = document.getElementById('coin-modal'), area = document.getElementById('coin-area');
     
-    // Scale tokens based on the current round (R1=2, R2=4, R3=6)
-    let tokenCount = currentRound * 2; 
+    // Grab the token count directly from our progression array
+    let tokenCount = tokenProgression[currentRound - 1] || 2; 
     
-    // Update the subtitle text to show the correct number
     document.getElementById('token-subtitle').innerHTML = `Flipping ${tokenCount} Tokens...<br>⭐ = Most Points | 🎨 = First to 5 Colors`;
     
     area.innerHTML = ''; document.getElementById('coin-result').innerText = '';
@@ -614,7 +654,6 @@ function showStealCards(player, victim) {
     });
 }
 
-// FIX: Hardened the flip state check to guarantee it sticks
 function showFlipCards(player, target) {
     let grid = document.getElementById('select-grid'); grid.innerHTML = '';
     addBackBtn(player, 'FLIP');
@@ -624,7 +663,6 @@ function showFlipCards(player, target) {
         let el = document.createElement('div'); el.className = 'card';
         el.innerHTML = `<div class="card-side active type-${getTypeClass(s)}"><span>${s.name}</span><br>${s.value}VP</div><div style="text-align:center">⬇</div><div class="card-side inactive type-${getTypeClass(o)}"><span>${o.name}</span><br>${o.value}VP</div>`;
         el.onclick = () => {
-            // Explicitly set the side so it can never be confused
             c.selectedSide = c.selectedSide === 0 ? 1 : 0;
             log(`> Flipped ${target.name}'s card!`, false, 'success');
             document.getElementById('select-modal').classList.add('hidden'); 
@@ -671,7 +709,6 @@ function renderStats() {
     container.innerHTML = html;
 }
 
-// FIX: Smarter Bot Stealing (takes the best card instead of the newest)
 function handleBotSteal(att) {
     try {
         let t = players.filter(p => p !== att && p.scorePile.length > 0);
@@ -686,18 +723,13 @@ function handleBotSteal(att) {
     } catch(e) { console.log("Bot Steal Error", e); }
 }
 
-// FIX: Prevent Bot from continuously flipping the exact same card in a loop
 function handleBotFlip(att) {
     try {
-        // Find opponents that actually have scored cards (so bot doesn't attack itself)
         let t = players.filter(p => p !== att && p.scorePile.length > 0);
         if(t.length) { 
-            // Attack the player currently in the lead
             let v = t.sort((a,b) => b.getRoundScore() - a.getRoundScore())[0]; 
-            // Target their best card
             v.scorePile.sort((a,b) => b.sides[b.selectedSide].value - a.sides[a.selectedSide].value);
             let c = v.scorePile[0]; 
-            // Explicitly lock in the flip state
             c.selectedSide = c.selectedSide === 0 ? 1 : 0; 
             log(`> ${att.name} flipped ${v.name}'s card!`); 
         }
